@@ -1,0 +1,84 @@
+{{define "content"}}
+<section class="columns">
+  <form method="post" action="/haproxy/agregar" class="card column">
+    <h3>Agregar servidor al backend</h3>
+    <label>Backend
+      <input name="backend" list="lista-backends" placeholder="app_backend" required value="{{index .Form "backend"}}">
+      <datalist id="lista-backends">
+        {{range .Backends}}<option value="{{.Name}}">{{end}}
+      </datalist>
+    </label>
+    <label>Nombre del servidor
+      <input name="servidor" placeholder="srv1" required value="{{index .Form "servidor"}}">
+    </label>
+    <div class="columns tight">
+      <label>Dirección IP o host
+        <input name="direccion" placeholder="192.168.1.20" required value="{{index .Form "direccion"}}">
+      </label>
+      <label>Puerto
+        <input name="puerto" placeholder="8080" required value="{{index .Form "puerto"}}">
+      </label>
+    </div>
+    <label>Peso (opcional, 1-256)
+      <input name="peso" placeholder="100" value="{{index .Form "peso"}}">
+    </label>
+    <label class="check"><input type="checkbox" name="check" checked> Monitorear disponibilidad (<code>check</code>)</label>
+    <label class="check"><input type="checkbox" name="backup"> Servidor de respaldo (<code>backup</code>)</label>
+    <label class="check"><input type="checkbox" name="crear_backend"> Crear el backend si no existe</label>
+    <div class="columns tight">
+      <label>Modo del backend nuevo
+        <select name="modo">
+          <option value="">(tcp por omisión)</option>
+          <option value="http">http</option>
+          <option value="tcp">tcp</option>
+        </select>
+      </label>
+      <label>Balanceo del backend nuevo
+        <input name="balanceo" placeholder="roundrobin">
+      </label>
+    </div>
+    <button class="btn primary" type="submit">Agregar servidor</button>
+  </form>
+
+  <form method="post" action="/haproxy/eliminar" class="card column">
+    <h3>Eliminar servidor del backend</h3>
+    <label>Backend
+      <input name="backend" list="lista-backends" placeholder="app_backend" required value="{{index .Form "backend"}}">
+    </label>
+    <label>Nombre del servidor
+      <input name="servidor" placeholder="srv1" required value="{{index .Form "servidor"}}">
+    </label>
+    <p class="hint">La configuración se respalda, se valida con <code>haproxy -c</code> y el servicio se recarga. Si la validación falla, se restaura el respaldo.</p>
+    <button class="btn danger" type="submit">Eliminar servidor</button>
+  </form>
+</section>
+
+<section class="card">
+  <h3>Backends configurados ({{len .Backends}})</h3>
+  {{if .Backends}}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Backend</th><th>Servidor</th><th>Dirección</th><th>Opciones</th></tr></thead>
+      <tbody>
+      {{range .Backends}}
+        {{if .Servers}}
+          {{range .Servers}}
+          <tr>
+            <td class="mono">{{$.Name}}</td>
+            <td class="mono">{{.Name}}</td>
+            <td class="mono">{{.Address}}</td>
+            <td class="mono">{{.Options}}</td>
+          </tr>
+          {{end}}
+        {{else}}
+          <tr><td class="mono">{{.Name}}</td><td colspan="3" class="hint">sin servidores</td></tr>
+        {{end}}
+      {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else}}
+  <p class="hint">No se encontraron backends o no se pudo leer la configuración.</p>
+  {{end}}
+</section>
+{{end}}

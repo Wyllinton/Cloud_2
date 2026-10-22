@@ -1,0 +1,54 @@
+{{define "layout"}}<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}} · Consola NP2</title>
+<link rel="stylesheet" href="/estaticos/app.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">NP2</span>
+    <div>
+      <strong>Consola de automatización</strong>
+      <small>Debian 13 · Golang</small>
+    </div>
+  </div>
+  <div class="target">
+    <span class="pill {{.Mode}}">transporte: {{.Mode}}</span>
+    <span class="mono">{{.Target}}</span>
+  </div>
+</header>
+
+<div class="shell">
+  <nav class="sidebar">
+    <a class="{{if eq .Active "inicio"}}active{{end}}" href="/">Inicio</a>
+    <span class="group">Preparación del sistema</span>
+    <a class="{{if eq .Active "paquetes"}}active{{end}}" href="/sistema/paquetes">Aplicaciones (apt)</a>
+    <a class="{{if eq .Active "ssh-root"}}active{{end}}" href="/sistema/ssh-root">Llave SSH de root</a>
+    <a class="{{if eq .Active "issue"}}active{{end}}" href="/sistema/issue">Mensaje de inicio</a>
+    <a class="{{if eq .Active "hostname"}}active{{end}}" href="/sistema/hostname">Nombre de host</a>
+    <span class="group">Administración</span>
+    <a class="{{if eq .Active "usuarios"}}active{{end}}" href="/usuarios">Usuarios</a>
+    <a class="{{if eq .Active "servicios"}}active{{end}}" href="/servicios">Servicios systemd</a>
+    <a class="{{if eq .Active "haproxy"}}active{{end}}" href="/haproxy">Balanceador HAProxy</a>
+  </nav>
+
+  <main class="content">
+    <h1>{{.Title}}</h1>
+
+    {{if .Flash}}<p class="flash">{{.Flash}}</p>{{end}}
+    {{if .Error}}<div class="alert err">{{.Error}}</div>{{end}}
+
+    {{if .Report}}{{template "report" .}}{{end}}
+
+    {{template "content" .}}
+  </main>
+</div>
+
+<footer class="footer">
+  Consola de automatización para Debian 13.7 · todas las operaciones son no interactivas y validan sus entradas.
+</footer>
+</body>
+</html>{{end}}

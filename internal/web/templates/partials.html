@@ -1,0 +1,56 @@
+{{define "links"}}
+{{if .Links}}
+<div class="artifacts">
+  <h4>Archivos generados</h4>
+  {{range .Links}}
+  <div class="artifact">
+    <a class="btn primary" href="/descargas/{{.ID}}" download="{{.Filename}}">Descargar {{.Name}}</a>
+    <span class="meta mono">{{.Filename}} · {{.Size}} bytes</span>
+    {{if .Note}}<p class="note">{{.Note}}</p>{{end}}
+  </div>
+  {{end}}
+</div>
+{{end}}
+{{end}}
+
+{{define "report"}}
+<section class="card result {{if .Report.OK}}ok{{else}}bad{{end}}">
+  <h3>
+    {{if .Report.OK}}Tarea completada correctamente{{else}}La tarea terminó con errores{{end}}
+  </h3>
+  <p class="summary">{{.Report.Summary}}</p>
+
+  {{if .Report.Notes}}
+  <ul class="notes">
+    {{range .Report.Notes}}<li>{{.}}</li>{{end}}
+  </ul>
+  {{end}}
+
+  {{if .Report.Warnings}}
+  <div class="warn">
+    <strong>Advertencias</strong>
+    <ul>{{range .Report.Warnings}}<li>{{.}}</li>{{end}}</ul>
+  </div>
+  {{end}}
+
+  {{template "links" .}}
+
+  <details class="logs" open>
+    <summary>Información técnica de diagnóstico ({{len .Report.Steps}} comandos)</summary>
+    {{range .Report.Steps}}
+    <div class="step {{if .OK}}ok{{else}}bad{{end}}">
+      <div class="step-head">
+        <span class="badge">{{if .OK}}OK{{else}}FALLO · código {{.ExitCode}}{{end}}</span>
+        {{if .Transport}}<span class="transport">{{.Transport}}</span>{{end}}
+        {{.Title}}
+      </div>
+      <pre class="cmd">$ {{.Command}}</pre>
+      {{if .HostCommand}}<pre class="cmd host">↳ {{.HostCommand}}</pre>{{end}}
+      {{if .Stdout}}<pre class="out">{{.Stdout}}</pre>{{end}}
+      {{if .Stderr}}<pre class="err">{{.Stderr}}</pre>{{end}}
+      {{if .Error}}<p class="err-line">{{.Error}}</p>{{end}}
+    </div>
+    {{end}}
+  </details>
+</section>
+{{end}}

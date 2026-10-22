@@ -1,0 +1,45 @@
+{{define "content"}}
+<section class="card">
+  <h3>Instalar o eliminar un paquete</h3>
+  <p class="hint">Escriba el nombre exacto del paquete de Debian (por ejemplo <code>nginx</code>, <code>htop</code>). Solo se permiten minúsculas, dígitos y los signos <code>. + -</code>.</p>
+
+  <div class="columns">
+    <form method="post" action="/sistema/paquetes/instalar" class="column">
+      <h4>Instalar</h4>
+      <label>Paquete
+        <input name="paquete" placeholder="nginx" required value="{{index .Form "paquete"}}">
+      </label>
+      <label class="check"><input type="checkbox" name="actualizar" checked> Ejecutar <code>apt-get update</code> antes de instalar</label>
+      <button class="btn primary" type="submit">Instalar paquete</button>
+    </form>
+
+    <form method="post" action="/sistema/paquetes/eliminar" class="column">
+      <h4>Eliminar</h4>
+      <label>Paquete
+        <input name="paquete" placeholder="nginx" required value="{{index .Form "paquete"}}">
+      </label>
+      <label class="check"><input type="checkbox" name="purgar"> Purgar (eliminar también la configuración)</label>
+      <label class="check"><input type="checkbox" name="autoremove"> Ejecutar <code>apt-get autoremove</code></label>
+      <button class="btn danger" type="submit">Eliminar paquete</button>
+    </form>
+  </div>
+</section>
+
+<section class="card">
+  <h3>Paquetes instalados ({{len .Installed}})</h3>
+  {{if .Installed}}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Paquete y versión</th></tr></thead>
+      <tbody>
+      {{range .Installed}}
+        <tr><td class="mono">{{.}}</td></tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else}}
+  <p class="hint">No se pudo obtener la lista de paquetes instalados.</p>
+  {{end}}
+</section>
+{{end}}

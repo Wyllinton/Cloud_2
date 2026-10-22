@@ -1,0 +1,97 @@
+{{define "content"}}
+<section class="card">
+  <h3>Control de servicios</h3>
+  <p class="hint">Ejecute una acción de systemd sobre una unidad. El nombre puede indicarse con o sin el sufijo <code>.service</code>.</p>
+  <form method="post" action="/servicios/accion" class="inline-form">
+    <label>Servicio
+      <input name="servicio" list="lista-servicios" placeholder="nginx" required>
+      <datalist id="lista-servicios">
+        {{range .Services}}<option value="{{.Unit}}">{{end}}
+      </datalist>
+    </label>
+    <label>Acción
+      <select name="accion">
+        <option value="start">start</option>
+        <option value="stop">stop</option>
+        <option value="restart">restart</option>
+        <option value="status">status</option>
+        <option value="enable">enable</option>
+        <option value="disable">disable</option>
+      </select>
+    </label>
+    <button class="btn primary" type="submit">Ejecutar</button>
+  </form>
+</section>
+
+<section class="card">
+  <h3>Desplegar una aplicación como servicio</h3>
+  <p class="hint">Transfiere los archivos de la aplicación, los deja en el directorio de trabajo, ajusta permisos y propietario, y genera la unidad de systemd.</p>
+  <form method="post" action="/servicios/desplegar" enctype="multipart/form-data">
+    <div class="columns">
+      <div class="column">
+        <label>Nombre del servicio
+          <input name="servicio" placeholder="catalogo" required value="{{index .Form "servicio"}}">
+        </label>
+        <label>Descripción
+          <input name="descripcion" placeholder="Aplicación de catálogo de libros">
+        </label>
+        <label>Directorio de trabajo
+          <input name="directorio" placeholder="/opt/catalogo" required value="{{index .Form "directorio"}}">
+        </label>
+        <label>Comando de ejecución (ruta absoluta)
+          <input name="comando" placeholder="/opt/catalogo/catalogo" required value="{{index .Form "comando"}}">
+        </label>
+      </div>
+      <div class="column">
+        <label>Argumentos (opcional)
+          <input name="argumentos" placeholder="--puerto 8081">
+        </label>
+        <label>Usuario de ejecución (opcional)
+          <input name="usuario_ejecucion" placeholder="catalogo">
+        </label>
+        <label>Variables de entorno (una por línea, CLAVE=valor)
+          <textarea name="entorno" rows="3" placeholder="PORT=8081"></textarea>
+        </label>
+        <label>Archivos de la aplicación
+          <input type="file" name="archivos" multiple>
+        </label>
+      </div>
+    </div>
+    <label class="check"><input type="checkbox" name="ejecutable"> Marcar los archivos subidos como ejecutables (0755)</label>
+    <div class="checks-grid">
+      <label class="check"><input type="checkbox" name="habilitar" checked> Habilitar al arranque (enable)</label>
+      <label class="check"><input type="checkbox" name="iniciar" checked> Iniciar ahora (start)</label>
+      <label class="check"><input type="checkbox" name="reiniciar"> Reiniciar si ya estaba en ejecución (restart)</label>
+    </div>
+    <button class="btn primary" type="submit">Desplegar servicio</button>
+  </form>
+</section>
+
+<section class="card">
+  <h3>Eliminar una unidad</h3>
+  <form method="post" action="/servicios/eliminar" class="inline-form">
+    <label>Servicio
+      <input name="servicio" required placeholder="catalogo">
+    </label>
+    <button class="btn danger" type="submit">Detener, deshabilitar y eliminar</button>
+  </form>
+</section>
+
+<section class="card">
+  <h3>Unidades disponibles ({{len .Services}})</h3>
+  {{if .Services}}
+  <div class="table-wrap scroll">
+    <table>
+      <thead><tr><th>Unidad</th><th>Estado de instalación</th></tr></thead>
+      <tbody>
+      {{range .Services}}
+        <tr><td class="mono">{{.Unit}}</td><td>{{.Load}}</td></tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else}}
+  <p class="hint">No se pudo obtener la lista de unidades de systemd.</p>
+  {{end}}
+</section>
+{{end}}

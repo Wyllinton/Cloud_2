@@ -1,0 +1,42 @@
+{{define "content"}}
+<section class="card">
+  <h3>Personalizar /etc/issue</h3>
+  <p class="hint">Seleccione los datos que agetty debe mostrar en el banner de inicio de sesión. Secuencias usadas: <code>\n</code> host, <code>\d</code> fecha, <code>\t</code> hora, <code>\4</code> IPv4, <code>\r</code> kernel, <code>\s</code> sistema.</p>
+
+  <form method="post" action="/sistema/issue/aplicar">
+    <div class="checks-grid">
+      <label class="check"><input type="checkbox" name="mostrar_host" checked> Nombre del host</label>
+      <label class="check"><input type="checkbox" name="mostrar_fecha" checked> Fecha</label>
+      <label class="check"><input type="checkbox" name="mostrar_hora" checked> Hora</label>
+      <label class="check"><input type="checkbox" name="mostrar_ip" checked> Dirección IP</label>
+      <label class="check"><input type="checkbox" name="mostrar_kernel"> Versión del kernel</label>
+      <label class="check"><input type="checkbox" name="mostrar_so"> Sistema operativo</label>
+      <label class="check"><input type="checkbox" name="mostrar_tty"> Terminal</label>
+      <label class="check"><input type="checkbox" name="tambien_issue_net"> Aplicar también a /etc/issue.net</label>
+    </div>
+
+    <label>Mensaje personalizado
+      <textarea name="mensaje" rows="3" placeholder="Bienvenido a la máquina virtual de automatización NP2">{{index .Form "mensaje"}}</textarea>
+    </label>
+
+    <div class="actions">
+      <button class="btn" type="submit" formaction="/sistema/issue/vista-previa">Ver vista previa</button>
+      <button class="btn primary" type="submit">Aplicar a /etc/issue</button>
+    </div>
+  </form>
+</section>
+
+{{if .Preview}}
+<section class="card">
+  <h3>Vista previa</h3>
+  <pre class="out">{{.Preview}}</pre>
+</section>
+{{end}}
+
+{{if .IssueContent}}
+<section class="card">
+  <h3>Contenido actual de /etc/issue</h3>
+  <pre class="out">{{.IssueContent}}</pre>
+</section>
+{{end}}
+{{end}}

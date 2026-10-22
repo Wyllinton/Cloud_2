@@ -1,0 +1,43 @@
+{{define "content"}}
+<section class="grid">
+  <a class="card link" href="/sistema/paquetes">
+    <h3>Instalación de aplicaciones</h3>
+    <p>Instala o elimina paquetes con apt de forma no interactiva.</p>
+  </a>
+  <a class="card link" href="/sistema/ssh-root">
+    <h3>Llave SSH de root</h3>
+    <p>Genera el par de llaves, lo instala y deshabilita el login por contraseña.</p>
+  </a>
+  <a class="card link" href="/sistema/issue">
+    <h3>Mensaje de inicio de sesión</h3>
+    <p>Personaliza /etc/issue con host, fecha, hora, IP y un mensaje propio.</p>
+  </a>
+  <a class="card link" href="/sistema/hostname">
+    <h3>Nombre de host</h3>
+    <p>Asigna el hostname y sincroniza /etc/hosts.</p>
+  </a>
+  <a class="card link" href="/usuarios">
+    <h3>Gestión de usuarios</h3>
+    <p>Crea usuarios con sudo y llave SSH, o elimínalos con sus archivos.</p>
+  </a>
+  <a class="card link" href="/servicios">
+    <h3>Servicios systemd</h3>
+    <p>Despliega una aplicación como unidad y controles start/stop/restart/status/enable/disable.</p>
+  </a>
+  <a class="card link" href="/haproxy">
+    <h3>Balanceador HAProxy</h3>
+    <p>Agrega o elimina servidores del backend y recarga el balanceador.</p>
+  </a>
+</section>
+
+<section class="card">
+  <h3>Cómo funciona</h3>
+  <ol class="steps-list">
+    <li>Ejecute la consola en el host con <code>-mode guestcontrol</code> (o <code>-mode auto</code>) para controlar la VM mediante <code>VBoxManage</code> y las Guest Additions, sin necesidad de SSH.</li>
+    <li>Con el modo <code>auto</code>, la consola intenta SSH primero y cae automáticamente a Guest Additions si no hay conexión.</li>
+    <li>En modo <code>guestcontrol</code> o <code>auto</code>, use <em>Llave SSH de root</em> para generar el par de llaves y descargar la llave privada.</li>
+    <li>A partir de ese momento, SSH se convierte en el transporte principal; la consola sigue funcionando desde el navegador del host.</li>
+    <li>Alternativamente, ejecute la consola en modo <code>local</code> dentro del invitado.</li>
+  </ol>
+</section>
+{{end}}

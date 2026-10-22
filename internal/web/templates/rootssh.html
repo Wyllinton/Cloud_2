@@ -1,0 +1,32 @@
+{{define "content"}}
+<section class="card">
+  <h3>Configurar la llave de acceso SSH para root</h3>
+  <p class="hint">La operación crea el par de llaves ed25519 en <code>/root/.ssh</code>, instala la llave pública en <code>authorized_keys</code> y deshabilita el acceso por contraseña en <code>/etc/ssh/sshd_config.d/</code>.</p>
+
+  <form method="post" action="/sistema/ssh-root/configurar">
+    <label class="check"><input type="checkbox" name="regenerar"> Regenerar el par de llaves aunque ya exista</label>
+    <label class="check"><input type="checkbox" name="deshabilitar_password" checked> Deshabilitar el login por contraseña (PasswordAuthentication no)</label>
+    <label>Comentario de la llave
+      <input name="comentario" placeholder="root@nombre-de-host" value="{{index .Form "comentario"}}">
+    </label>
+    <button class="btn primary" type="submit">Configurar llave de root</button>
+  </form>
+</section>
+
+{{if .SSHStatus}}
+<section class="card">
+  <h3>Configuración efectiva de sshd</h3>
+  <pre class="out">{{.SSHStatus}}</pre>
+</section>
+{{end}}
+
+<section class="card warn-card">
+  <h3>Uso responsable de la llave privada</h3>
+  <ul>
+    <li>La llave privada es un secreto: no la comparta ni la suba a repositorios.</li>
+    <li>Guárdela con permisos <code>chmod 600</code> y úsela con <code>ssh -i root_id_ed25519 root@host</code>.</li>
+    <li>Puede protegerla con una frase de paso mediante <code>ssh-keygen -p -f root_id_ed25519</code>.</li>
+    <li>Esta descarga es la única oportunidad de obtenerla desde la consola; si la pierde, regenere el par.</li>
+  </ul>
+</section>
+{{end}}

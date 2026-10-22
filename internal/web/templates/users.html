@@ -1,0 +1,52 @@
+{{define "content"}}
+<section class="columns">
+  <form method="post" action="/usuarios/crear" class="card column">
+    <h3>Crear usuario</h3>
+    <label>Nombre de usuario
+      <input name="usuario" placeholder="ana" required pattern="[a-z_][a-z0-9_-]{0,31}" value="{{index .Form "usuario"}}">
+    </label>
+    <label>Comentario (GECOS)
+      <input name="comentario" placeholder="Ana Pérez" value="{{index .Form "comentario"}}">
+    </label>
+    <label>Intérprete de comandos
+      <input name="shell" placeholder="/bin/bash" value="{{index .Form "shell"}}">
+    </label>
+    <label class="check"><input type="checkbox" name="crear_home" checked> Crear el directorio personal</label>
+    <label class="check"><input type="checkbox" name="sudo"> Conceder privilegios de sudo (grupo sudo)</label>
+    <label class="check"><input type="checkbox" name="llave_ssh"> Generar par de llaves SSH y descargar la privada</label>
+    <button class="btn primary" type="submit">Crear usuario</button>
+  </form>
+
+  <form method="post" action="/usuarios/eliminar" class="card column">
+    <h3>Eliminar usuario</h3>
+    <label>Nombre de usuario
+      <input name="usuario" list="lista-usuarios" placeholder="ana" required pattern="[a-z_][a-z0-9_-]{0,31}">
+      <datalist id="lista-usuarios">
+        {{range .Users}}<option value="{{.Name}}">{{end}}
+      </datalist>
+    </label>
+    <label class="check"><input type="checkbox" name="eliminar_archivos"> Eliminar también todos sus archivos (<code>userdel -r</code>)</label>
+    <label class="check"><input type="checkbox" name="finalizar_sesiones"> Finalizar sus sesiones activas antes de eliminarlo</label>
+    <p class="hint">Las cuentas del sistema (uid &lt; 1000) están protegidas y no se pueden eliminar.</p>
+    <button class="btn danger" type="submit">Eliminar usuario</button>
+  </form>
+</section>
+
+<section class="card">
+  <h3>Usuarios regulares (uid ≥ 1000)</h3>
+  {{if .Users}}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Usuario</th><th>UID</th><th>Directorio</th><th>Shell</th></tr></thead>
+      <tbody>
+      {{range .Users}}
+        <tr><td class="mono">{{.Name}}</td><td class="mono">{{.UID}}</td><td class="mono">{{.Home}}</td><td class="mono">{{.Shell}}</td></tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else}}
+  <p class="hint">No hay usuarios regulares o no se pudo consultar la lista.</p>
+  {{end}}
+</section>
+{{end}}

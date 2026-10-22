@@ -1,0 +1,24 @@
+{{define "content"}}
+<section class="card">
+  <h3>Asignar nombre de host</h3>
+  <p class="hint">Aplique el nombre con <code>hostnamectl</code> y sincronice <code>/etc/hosts</code> para que el nuevo nombre resuelva en <code>127.0.1.1</code>.</p>
+  <form method="post" action="/sistema/hostname/asignar">
+    <label>Nombre de host
+      <input name="hostname" placeholder="servidor-np2" required value="{{index .Form "hostname"}}" pattern="[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?">
+    </label>
+    <p class="hint">Use letras, dígitos y guiones; no puede empezar ni terminar en guion.</p>
+    <button class="btn primary" type="submit">Asignar nombre de host</button>
+  </form>
+</section>
+
+<section class="card two-col">
+  <div>
+    <h3>Nombre actual</h3>
+    <pre class="out mono">{{.CurrentHostname}}</pre>
+  </div>
+  <div>
+    <h3>/etc/hosts</h3>
+    <pre class="out">{{.HostsContent}}</pre>
+  </div>
+</section>
+{{end}}
