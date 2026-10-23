@@ -122,7 +122,11 @@ func (m *RootSSHManager) Configure(ctx context.Context, req RootSSHRequest) *op.
 
 	rep.Warn("La llave privada es un secreto: no la comparta, no la suba a repositorios y protéjala con permisos 0600. " +
 		"Esta descarga es la única oportunidad de obtenerla desde la consola.")
-	rep.Summary = "Llave SSH de root configurada y acceso por contraseña deshabilitado."
+	if req.DisablePasswordAuth {
+		rep.Summary = "Llave SSH de root configurada y acceso por contraseña deshabilitado."
+	} else {
+		rep.Summary = "Llave SSH de root configurada; el acceso por contraseña sigue habilitado."
+	}
 	return rep
 }
 

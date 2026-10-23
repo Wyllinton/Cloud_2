@@ -85,7 +85,8 @@ func TestGuestControlRunArgsLayout(t *testing.T) {
 		User:       "root",
 		Password:   "secreto",
 	})
-	args := g.runArgs(context.Background(), "tok", []string{"apt-get", "install", "-y", "nginx"})
+	argv := []string{"apt-get", "install", "-y", "nginx"}
+	args := g.runArgs(context.Background(), "tok", argv)
 
 	sep := -1
 	for i, a := range args {
@@ -97,8 +98,8 @@ func TestGuestControlRunArgsLayout(t *testing.T) {
 	if sep < 0 {
 		t.Fatalf("falta el separador -- en %v", args)
 	}
-	// Everything after -- is the guest argv: sh -c <script> sh <command...>.
-	want := []string{"-c", `command "$@"; rc=$?; printf '\nNP2RC:tok:%d\n' "$rc"; exit 0`, "sh", "apt-get", "install", "-y", "nginx"}
+	// Everything after -- is the guest argv: sh -c <script> sh <quoted command>.
+	want := []string{"-c", `eval "$1"; rc=$?; printf '\nNP2RC:tok:%d\n' "$rc"; exit 0`, "sh", ShellQuote(argv)}
 	got := args[sep+1:]
 	if len(got) != len(want) {
 		t.Fatalf("argv invitado = %v, esperaba %v", got, want)
@@ -113,6 +114,63 @@ func TestGuestControlRunArgsLayout(t *testing.T) {
 	head := strings.Join(args[:sep], " ")
 	if strings.Contains(head, "nginx") {
 		t.Errorf("los argumentos del usuario aparecen antes de --: %q", head)
+	}
+}
+
+func TestGuestControlRunArgsPreserveEmptyArguments(t *testing.T) {
+	g := NewGuestControl(GuestControlOptions{VM: "VM_A", User: "root"})
+	args := g.runArgs(context.Background(), "tok", []string{"ssh-keygen", "-N", "", "-f", "/root/.ssh/id_ed25519"})
+
+	// VBoxManage drops empty arguments, so the empty passphrase must travel
+	// inside the single, safely quoted command string as ''.
+	last := args[len(args)-1]
+	if !strings.Contains(last, "-N ''") {
+		t.Fatalf("la cadena de comando no conserva el argumento vacío: %q", last)
+	}
+	for _, a := range args {
+		if a == "" {
+			t.Fatalf("no debe enviarse ningún argumento vacío a VBoxManage: %v", args)
+		}
+	}
+}
+
+func TestGuestControlCopyFromArgsHasHostDestination(t *testing.T) {
+	g := NewGuestControl(GuestControlOptions{VM: "VM_A", User: "root", Password: "secreto"})
+	args := g.copyFromArgs("/etc/hosts", "/tmp/np2/hosts")
+
+	if len(args) < 2 {
+		t.Fatalf("argv de copyfrom demasiado corto: %v", args)
+	}
+	if got := args[len(args)-1]; got != "/tmp/np2/hosts" {
+		t.Errorf("el último operando debe ser el destino en el host, se obtuvo %q en %v", got, args)
+	}
+	if got := args[len(args)-2]; got != "/etc/hosts" {
+		t.Errorf("el penúltimo operando debe ser el origen en el invitado, se obtuvo %q en %v", got, args)
+	}
+	for _, a := range args {
+		if strings.HasPrefix(a, "--target-directory=") {
+			t.Errorf("copyfrom no debe usar --target-directory sin destino: %v", args)
+		}
+	}
+}
+
+func TestGuestControlCopyToArgsHasGuestDestination(t *testing.T) {
+	g := NewGuestControl(GuestControlOptions{VM: "VM_A", User: "root", Password: "secreto"})
+	args := g.copyToArgs("/tmp/host-file", "/tmp/guest-file")
+
+	if len(args) < 2 {
+		t.Fatalf("argv de copyto demasiado corto: %v", args)
+	}
+	if got := args[len(args)-1]; got != "/tmp/guest-file" {
+		t.Errorf("el último operando debe ser el destino en el invitado, se obtuvo %q en %v", got, args)
+	}
+	if got := args[len(args)-2]; got != "/tmp/host-file" {
+		t.Errorf("el penúltimo operando debe ser el origen en el host, se obtuvo %q en %v", got, args)
+	}
+	for _, a := range args {
+		if strings.HasPrefix(a, "--target-directory=") {
+			t.Errorf("copyto no debe usar --target-directory sin destino: %v", args)
+		}
 	}
 }
 

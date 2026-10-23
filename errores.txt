@@ -1,0 +1,76 @@
+Error cuando se instala algún paquete, prueba con htop. El paquete htop se instala, pero aparece el siguiente error, en la cola de ejecuciones:
+
+FALLO · código 100 guestcontrol Verificar instalación de htop
+
+$ env DEBIAN_FRONTEND=noninteractive apt-get list --installed -- htop
+
+↳ --nologo guestcontrol VM_A run --username=root '--password=***' --exe=/bin/sh --wait-stdout --wait-stderr --unquoted-args --timeout=597950 -- -c 'command "$@"; rc=$?; printf '\''\nNP2RC:ea25e339a3868fdc:%d\n'\'' "$rc"; exit 0' sh env DEBIAN_FRONTEND=noninteractive apt-get list --installed -- htop
+
+E: Command line option --installed is not understood in combination with the other options
+
+E: Command line option --installed is not understood in combination with the other options
+
+Error en el modulo de mensajes de inicio, se muestra lo siguiente: no se pudo leer /etc/issue: copyfrom /etc/issue: exit status 1: VBoxManage: error: File copy failed
+
+Error en el modulo de nombre de host, se actualiza el nombre pero aparece el siguiente error: no se pudo leer /etc/hosts: copyfrom /etc/hosts: exit status 1: VBoxManage: error: File copy failed
+
+Error en el modulo de llave SSH de root, cuando se ejecuta muestra la siguiente pila de ejecucion y falla: Generar par de llaves ed25519: Too many arguments.
+La tarea terminó con errores
+
+Generar par de llaves ed25519: Too many arguments.
+Información técnica de diagnóstico (3 comandos)
+OK guestcontrol Crear /root/.ssh
+
+$ mkdir -p /root/.ssh
+
+↳ --nologo guestcontrol VM_A run --username=root '--password=***' --exe=/bin/sh --wait-stdout --wait-stderr --unquoted-args --timeout=599999 -- -c 'command "$@"; rc=$?; printf '\''\nNP2RC:f5fd74c26ad0f1e8:%d\n'\'' "$rc"; exit 0' sh mkdir -p /root/.ssh
+
+OK guestcontrol Permisos de /root/.ssh
+
+$ chmod 0700 -- /root/.ssh
+
+↳ --nologo guestcontrol VM_A run --username=root '--password=***' --exe=/bin/sh --wait-stdout --wait-stderr --unquoted-args --timeout=599798 -- -c 'command "$@"; rc=$?; printf '\''\nNP2RC:75fad4d54e853b30:%d\n'\'' "$rc"; exit 0' sh chmod 0700 -- /root/.ssh
+
+FALLO · código 1 guestcontrol Generar par de llaves ed25519
+
+$ ssh-keygen -t ed25519 -N '' -C root@servidortest -f /root/.ssh/id_ed25519
+
+↳ --nologo guestcontrol VM_A run --username=root '--password=***' --exe=/bin/sh --wait-stdout --wait-stderr --unquoted-args --timeout=599337 -- -c 'command "$@"; rc=$?; printf '\''\nNP2RC:5cc6e968a1b95bd5:%d\n'\'' "$rc"; exit 0' sh ssh-keygen -t ed25519 -N '' -C root@servidortest -f /root/.ssh/id_ed25519
+
+Too many arguments.
+usage: ssh-keygen [-q] [-a rounds] [-b bits] [-C comment] [-f output_keyfile]
+                  [-m format] [-N new_passphrase] [-O option]
+                  [-t dsa | ecdsa | ecdsa-sk | ed25519 | ed25519-sk | rsa]
+                  [-w provider] [-Z cipher]
+       ssh-keygen -p [-a rounds] [-f keyfile] [-m format] [-N new_passphrase]
+                   [-P old_passphrase] [-Z cipher]
+       ssh-keygen -i [-f input_keyfile] [-m key_format]
+       ssh-keygen -e [-f input_keyfile] [-m key_format]
+       ssh-keygen -y [-f input_keyfile]
+       ssh-keygen -c [-a rounds] [-C comment] [-f keyfile] [-P passphrase]
+       ssh-keygen -l [-v] [-E fingerprint_hash] [-f input_keyfile]
+       ssh-keygen -B [-f input_keyfile]
+       ssh-keygen -D pkcs11
+       ssh-keygen -F hostname [-lv] [-f known_hosts_file]
+       ssh-keygen -H [-f known_hosts_file]
+       ssh-keygen -K [-a rounds] [-w provider]
+       ssh-keygen -R hostname [-f known_hosts_file]
+       ssh-keygen -r hostname [-g] [-f input_keyfile]
+       ssh-keygen -M generate [-O option] output_file
+       ssh-keygen -M screen [-f input_file] [-O option] output_file
+       ssh-keygen -I certificate_identity -s ca_key [-hU] [-D pkcs11_provider]
+                  [-n principals] [-O option] [-V validity_interval]
+                  [-z serial_number] file ...
+       ssh-keygen -L [-f input_keyfile]
+       ssh-keygen -A [-a rounds] [-f prefix_path]
+       ssh-keygen -k -f krl_file [-u] [-s ca_public] [-z version_number]
+                  file ...
+       ssh-keygen -Q [-l] -f krl_file [file ...]
+       ssh-keygen -Y find-principals -s signature_file -f allowed_signers_file
+       ssh-keygen -Y match-principals -I signer_identity -f allowed_signers_file
+       ssh-keygen -Y check-novalidate -n namespace -s signature_file
+       ssh-keygen -Y sign -f key_file -n namespace file [-O option] ...
+       ssh-keygen -Y verify -f allowed_signers_file -I signer_identity
+                  -n namespace -s signature_file [-r krl_file] [-O option]
+
+Too many arguments.

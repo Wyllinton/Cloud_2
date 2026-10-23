@@ -98,9 +98,12 @@ func (g *GuestControl) Run(ctx context.Context, input []byte, name string, args 
 }
 
 // runGuest wraps the command in a fixed shell script that records the guest
-// exit code in a machine-readable trailer. The user-provided argv is passed as
-// positional parameters, never interpolated into the script, so no injection is
-// possible.
+// exit code in a machine-readable trailer. The command is rendered with
+// ShellQuote and passed as a single positional parameter, so every argument
+// reaches the guest shell safely quoted. Passing the command as one parameter is
+// required because VBoxManage drops empty arguments: something like
+// `ssh-keygen -N ""` would otherwise reach the guest as `-N -C ...` and fail
+// with "Too many arguments".
 func (g *GuestControl) runGuest(ctx context.Context, argv []string) Result {
 	token := randomToken()
 	vboxArgs := g.runArgs(ctx, token, argv)
@@ -133,14 +136,13 @@ func (g *GuestControl) runGuest(ctx context.Context, argv []string) Result {
 // runArgs builds the full VBoxManage argv for `guestcontrol run`. It is a pure
 // function so the argument layout can be unit tested.
 func (g *GuestControl) runArgs(ctx context.Context, token string, argv []string) []string {
-	// Single-line, fixed script: the user argv arrives as positional
-	// parameters, so it is never interpolated into shell code. The trailer
-	// carries the guest exit code back to the host in a machine-readable way.
-	script := fmt.Sprintf(`command "$@"; rc=$?; printf '\nNP2RC:%s:%%d\n' "$rc"; exit 0`, token)
+	// Single-line, fixed script: the command arrives as one safely quoted
+	// positional parameter. The trailer carries the guest exit code back to the
+	// host in a machine-readable way.
+	script := fmt.Sprintf(`eval "$1"; rc=$?; printf '\nNP2RC:%s:%%d\n' "$rc"; exit 0`, token)
 
-	guestArgs := make([]string, 0, len(argv)+3)
-	guestArgs = append(guestArgs, "-c", script, "sh")
-	guestArgs = append(guestArgs, argv...)
+	guestArgs := make([]string, 0, 4)
+	guestArgs = append(guestArgs, "-c", script, "sh", ShellQuote(argv))
 
 	vboxArgs := g.baseArgs("run")
 	vboxArgs = append(vboxArgs,
@@ -165,8 +167,10 @@ func (g *GuestControl) ReadFile(ctx context.Context, guestPath string) ([]byte, 
 	}
 	defer os.RemoveAll(dir)
 
-	args := g.baseArgs("copyfrom")
-	args = append(args, "--target-directory="+dir, guestPath)
+	// copyfrom requires an explicit host destination operand; --target-directory
+	// alone is not enough (VBoxManage then fails with "File copy failed").
+	hostFile := filepath.Join(dir, path.Base(guestPath))
+	args := g.copyFromArgs(guestPath, hostFile)
 	res := g.execHost(ctx, args)
 	res.Argv = redactArgs(res.Argv)
 	res.Transport = "guestcontrol"
@@ -175,7 +179,7 @@ func (g *GuestControl) ReadFile(ctx context.Context, guestPath string) ([]byte, 
 		return nil, res, fmt.Errorf("copyfrom %s: %s", guestPath, res.ErrorString())
 	}
 
-	data, err := os.ReadFile(filepath.Join(dir, path.Base(guestPath)))
+	data, err := os.ReadFile(hostFile)
 	if err != nil {
 		return nil, res, fmt.Errorf("no se pudo leer el archivo copiado desde el invitado: %w", err)
 	}
@@ -200,8 +204,10 @@ func (g *GuestControl) WriteFile(ctx context.Context, target string, data []byte
 
 	var steps []Result
 
-	copyArgs := g.baseArgs("copyto")
-	copyArgs = append(copyArgs, "--target-directory=/tmp", hostFile)
+	// copyto also needs an explicit guest destination operand in current
+	// VBoxManage versions; --target-directory plus a single operand makes it
+	// treat the destination as another source and fail.
+	copyArgs := g.copyToArgs(hostFile, guestTmp)
 	copyRes := g.execHost(ctx, copyArgs)
 	copyRes.Argv = redactArgs(copyRes.Argv)
 	copyRes.Transport = "guestcontrol"
@@ -227,6 +233,22 @@ func (g *GuestControl) WriteFile(ctx context.Context, target string, data []byte
 		}
 	}
 	return steps, nil
+}
+
+// copyFromArgs builds the argv for `guestcontrol copyfrom`. VBoxManage requires
+// the host destination as the final operand; passing only --target-directory
+// makes the command fail with "File copy failed". It is a pure function so the
+// layout can be unit tested.
+func (g *GuestControl) copyFromArgs(guestPath, hostFile string) []string {
+	args := g.baseArgs("copyfrom")
+	return append(args, "--dereference", guestPath, hostFile)
+}
+
+// copyToArgs builds the argv for `guestcontrol copyto`. The guest destination is
+// passed explicitly as the final operand (see WriteFile).
+func (g *GuestControl) copyToArgs(hostFile, guestPath string) []string {
+	args := g.baseArgs("copyto")
+	return append(args, hostFile, guestPath)
 }
 
 // --- helpers -----------------------------------------------------------------

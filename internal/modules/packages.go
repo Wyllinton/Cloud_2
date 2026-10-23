@@ -3,6 +3,7 @@ package modules
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"np2/appgo/internal/op"
 	"np2/appgo/internal/runner"
@@ -75,8 +76,12 @@ func (m *PackagesManager) Install(ctx context.Context, req PackageRequest) *op.R
 		return rep
 	}
 
-	res := m.apt(ctx, "list", "--installed", "--", pkg)
-	rep.Step("Verificar instalación de "+pkg, res)
+	res := m.R.Run(ctx, nil, "dpkg-query", "-W", "-f", "${db:Status-Abbrev} ${Version}", "--", pkg)
+	if !rep.Step("Verificar instalación de "+pkg, res) {
+		rep.Failf("no se pudo verificar la instalación de %s: %s", pkg,
+			firstNonEmpty(res.ErrorString(), "dpkg-query terminó con código "+strconv.Itoa(res.ExitCode)))
+		return rep
+	}
 	rep.Summary = fmt.Sprintf("El paquete %s se instaló correctamente.", pkg)
 	return rep
 }

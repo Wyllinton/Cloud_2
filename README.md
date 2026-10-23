@@ -128,9 +128,12 @@ Si el usuario SSH no es `root`, añada `-sudo` (el usuario debe tener una regla
 
 ## Seguridad
 
-- **Nunca se invoca un shell con datos del usuario.** Cada comando se construye
-  como un *argv* explícito (`Runner`). En el transporte SSH cada argumento se
-  cita con comillas simples POSIX antes de enviarlo.
+- **Nunca se invoca un shell con datos del usuario sin citarlos.** Cada comando
+  se construye como un *argv* explícito (`Runner`). En los transportes SSH y
+  Guest Additions cada argumento se cita con comillas simples POSIX antes de
+  enviarlo; el canal Guest Additions usa además un envoltorio fijo `/bin/sh`
+  para recuperar el código de salida, sin interpolar datos del usuario en el
+  script.
 - **Validación estricta** de todos los valores (`internal/validate`): nombres de
   paquete, usuarios, host, servicios, direcciones, puertos, rutas, nombres de
   archivo, variables de entorno, etc. Se rechazan caracteres de shell.
@@ -141,8 +144,9 @@ Si el usuario SSH no es `root`, añada `-sudo` (el usuario debe tener una regla
   una lista de nombres reservados no se pueden eliminar.
 - El transporte SSH verifica la llave del host mediante `known_hosts` salvo que
   se habilite explícitamente lo contrario.
-- El transporte Guest Additions no acepta entrada estándar: la escritura de
-  archivos usa `VBoxManage copyto`/`copyfrom`, nunca un shell. La contraseña del
+- El transporte Guest Additions no acepta entrada estándar: la lectura y
+  escritura de archivos usa `VBoxManage copyfrom`/`copyto` con un destino
+  explícito, nunca un shell. La contraseña del
   invitado se pasa a `VBoxManage` (queda visible en la lista de procesos del
   host mientras se ejecuta); prefiera la variable `NP2_GUEST_PASSWORD` y un
   usuario con privilegios mínimos. Nunca se registra en los informes: los
