@@ -152,6 +152,16 @@ Si el usuario SSH no es `root`, añada `-sudo` (el usuario debe tener una regla
   usuario con privilegios mínimos. Nunca se registra en los informes: los
   comandos se muestran con la contraseña redactada.
 
+## Servicios systemd
+
+Al desplegar una aplicación, el archivo referenciado por `ExecStart` se marca
+ejecutable (0755) aunque no se marque la casilla correspondiente. Antes de
+instalar la unidad se comprueba que el comando exista y que la unidad pase
+`systemd-analyze verify`; la validación se hace sobre una copia en `/tmp` para no
+reemplazar una unidad que ya funcionaba. Después de `start`/`restart` se espera
+un breve intervalo y se comprueba el estado: si el servicio no queda activo, el
+informe incluye `systemctl status` y `journalctl` para diagnosticar el fallo.
+
 ## Resultado de las operaciones
 
 Cada operación devuelve un informe con:

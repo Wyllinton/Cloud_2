@@ -38,9 +38,9 @@
   <details class="logs" open>
     <summary>Información técnica de diagnóstico ({{len .Report.Steps}} comandos)</summary>
     {{range .Report.Steps}}
-    <div class="step {{if .OK}}ok{{else}}bad{{end}}">
+    <div class="step {{if .OK}}ok{{else if .Optional}}info{{else}}bad{{end}}">
       <div class="step-head">
-        <span class="badge">{{if .OK}}OK{{else}}FALLO · código {{.ExitCode}}{{end}}</span>
+        <span class="badge">{{if .OK}}OK{{else if .Optional}}INFO · código {{.ExitCode}}{{else}}FALLO · código {{.ExitCode}}{{end}}</span>
         {{if .Transport}}<span class="transport">{{.Transport}}</span>{{end}}
         {{.Title}}
       </div>

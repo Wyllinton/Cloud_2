@@ -55,6 +55,26 @@ func exists(ctx context.Context, r runner.Runner, path string) (bool, error) {
 	return false, fmt.Errorf("no se pudo comprobar %s: %s", path, firstNonEmpty(res.ErrorString(), "el comando terminó con código "+strconv.Itoa(res.ExitCode)))
 }
 
+// executableFile reports whether path is a regular file with execute
+// permission. It distinguishes "the path is missing or not executable"
+// (false, nil) from "the transport could not be reached" (false, error).
+func executableFile(ctx context.Context, r runner.Runner, path string) (bool, error) {
+	for _, flag := range []string{"-f", "-x"} {
+		res := r.Run(ctx, nil, "test", flag, path)
+		if res.Ok() {
+			continue
+		}
+		if res.TransportFailed() {
+			return false, fmt.Errorf("no se pudo comprobar %s: %s", path, firstNonEmpty(res.ErrorString(), "transporte no disponible"))
+		}
+		if res.ExitCode == 1 {
+			return false, nil
+		}
+		return false, fmt.Errorf("no se pudo comprobar %s: %s", path, firstNonEmpty(res.ErrorString(), "el comando terminó con código "+strconv.Itoa(res.ExitCode)))
+	}
+	return true, nil
+}
+
 // readFile reads a target file. Transports that implement FileTransfer (the
 // Guest Additions channel) use their own copy mechanism; the rest read through
 // cat.
