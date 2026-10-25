@@ -73,14 +73,21 @@ La VM debe estar encendida y con las Guest Additions activas. El usuario
 indicado debe existir en el sistema invitado (normalmente `root`); si no es
 `root`, añada `-sudo`.
 
-### Modo `local`: dentro del invitado
+### Modo `auto`:
 
-El binario se ejecuta **dentro** del invitado, al que se llega a través del canal
-de las Guest Additions (por ejemplo una carpeta compartida):
+La app comprueba ssh, si no funciona, sigue con guestcontrol hasta que se generan
+las llaves SSH
 
 ```bash
-# dentro de la máquina virtual Debian
-sudo ./appgo -listen :8080 -mode local
+# modo auto
+./appgo -listen :8080 -mode auto \
+  -ssh-host IP_VM \
+  -ssh-user root \
+   -guestcontrol-vm NOMBRE_VM \
+   -guestcontrol-user root \
+  -guestcontrol-password '****' \
+
+  -ssh-insecure-ignore-host-key
 ```
 
 Use el módulo *Llave SSH de root* y **descargue la llave privada**.
