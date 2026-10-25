@@ -129,10 +129,12 @@ input[type="file"] { padding: 6px; }
 .logs summary { cursor: pointer; color: var(--muted); margin-bottom: 10px; }
 .step { background: #0d1219; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
 .step.ok { border-left: 3px solid var(--ok); }
+.step.info { border-left: 3px solid var(--muted); }
 .step.bad { border-left: 3px solid var(--err); }
 .step-head { font-weight: 600; margin-bottom: 6px; }
 .badge { display: inline-block; font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; background: var(--ok-bg); color: #7ee787; margin-right: 8px; }
 .step.bad .badge { background: var(--err-bg); color: #ffb4ae; }
+.step.info .badge { background: var(--panel-2); color: var(--muted); }
 
 pre { margin: 6px 0; padding: 10px 12px; background: #0a0e13; border: 1px solid var(--border); border-radius: 8px; overflow-x: auto; white-space: pre-wrap; word-break: break-word; font-size: 0.85rem; }
 pre.cmd { color: #9fd0ff; }

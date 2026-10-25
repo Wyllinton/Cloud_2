@@ -75,3 +75,23 @@ func TestUnitNameNormalisation(t *testing.T) {
 		t.Error("unitName(-bad) debía fallar")
 	}
 }
+
+func TestFileModeMarksExecStartExecutable(t *testing.T) {
+	exec := "/opt/catalogo/catalogo"
+	if got := fileMode(exec, exec, false); got != 0755 {
+		t.Errorf("el archivo de ExecStart debe ser 0755 aunque la casilla esté desmarcada; se obtuvo %o", got)
+	}
+	if got := fileMode("/opt/catalogo/datos.txt", exec, false); got != 0644 {
+		t.Errorf("los demás archivos deben conservar 0644; se obtuvo %o", got)
+	}
+	if got := fileMode("/opt/catalogo/datos.txt", exec, true); got != 0755 {
+		t.Errorf("la casilla debe marcar todos los archivos como 0755; se obtuvo %o", got)
+	}
+}
+
+func TestParseProperties(t *testing.T) {
+	props := parseProperties("Type=simple\nResult=success\n\nSubState=running\n")
+	if props["Type"] != "simple" || props["Result"] != "success" || props["SubState"] != "running" {
+		t.Errorf("parseProperties devolvió %#v", props)
+	}
+}

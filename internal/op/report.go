@@ -22,6 +22,7 @@ type Step struct {
 	Stderr      string
 	ExitCode    int
 	OK          bool
+	Optional    bool
 	Error       string
 	Duration    time.Duration
 }
@@ -58,6 +59,18 @@ func New(action string) *Report {
 // Step records the result of a command execution and reports whether it
 // succeeded.
 func (r *Report) Step(title string, res runner.Result) bool {
+	return r.addStep(title, res, false)
+}
+
+// OptionalStep records a command whose non-zero exit status is a valid answer
+// rather than an operation failure (for example systemctl is-active on a
+// stopped unit). The step is shown as information and does not mark the report
+// as failed.
+func (r *Report) OptionalStep(title string, res runner.Result) bool {
+	return r.addStep(title, res, true)
+}
+
+func (r *Report) addStep(title string, res runner.Result, optional bool) bool {
 	ok := res.Ok()
 	if res.Title != "" {
 		title = res.Title
@@ -71,6 +84,7 @@ func (r *Report) Step(title string, res runner.Result) bool {
 		Stderr:      strings.TrimRight(res.Stderr, "\n"),
 		ExitCode:    res.ExitCode,
 		OK:          ok,
+		Optional:    optional,
 		Error:       res.ErrorString(),
 		Duration:    res.Duration,
 	})
@@ -114,7 +128,7 @@ func (r *Report) Finish() {
 	r.OK = r.Err == nil
 	if r.OK {
 		for _, s := range r.Steps {
-			if !s.OK {
+			if !s.OK && !s.Optional {
 				r.OK = false
 				break
 			}
