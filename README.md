@@ -17,6 +17,7 @@ diagnosticar un fallo.
 | Usuarios | `/usuarios` | Crea usuarios (con sudo y/o llave SSH) y los elimina (opcionalmente con sus archivos). |
 | Servicios systemd | `/servicios` | Transfiere archivos, genera la unidad y controla `start/stop/restart/status/enable/disable`. |
 | Balanceador HAProxy | `/haproxy` | Agrega y elimina servidores del backend y recarga el balanceador. |
+| HTTPaaS | `/httpaas` | Crea VM Debian/Apache desde `template_server`, asigna IPv4, registra el host en Bind9, despliega un `.zip` y permite eliminar instancias. |
 
 ## Requisitos
 
@@ -27,6 +28,12 @@ diagnosticar un fallo.
 - Los comandos que modifican el sistema requieren privilegios. La consola usa
   `sudo -n` (no interactivo) cuando se ejecuta con `-sudo`, o bien se conecta
   como `root` por SSH.
+- Para el módulo **HTTPaaS**: VirtualBox 7.x en el host (el módulo se ejecuta en
+  el host, no dentro de la VM principal), `nsupdate`/`dig`
+  (`bind9-dnsutils`), una red host-only (`vboxnet0`, `192.168.10.0/24`), el
+  servidor Bind9 `dns_server` y la plantilla apagada `template_server` con
+  Apache y Guest Additions. La llave TSIG debe estar en el host con permisos
+  `0600` (por omisión `/etc/bind/httpaas.key`).
 
 ## Compilación
 
@@ -60,6 +67,27 @@ Si solo se configura `--guestcontrol-vm`, el modo `auto` usa Guest Additions
 directamente. La contraseña puede pasarse con la variable `NP2_GUEST_PASSWORD`
 para no dejarla en el historial del shell.
 
+### Promoción automática de Guest Additions a SSH
+
+Cuando se configuran **ambos** transportes (`--guestcontrol-vm` y
+`--ssh-host`), la consola puede arrancar sin que la llave exista todavía:
+
+1. Si SSH no conecta (por ejemplo porque `--ssh-key` aún no existe), la consola
+   arranca por Guest Additions.
+2. En *Llave SSH de root* se genera el par, se instala la pública y se
+   (opcionalmente) deshabilita el login por contraseña.
+3. Al terminar, la consola usa la llave privada recién leída del invitado para
+   abrir la conexión SSH y **cambia el transporte en caliente**. No hace falta
+   reiniciar ni guardar antes la llave en el host.
+4. A partir de ahí todas las operaciones usan SSH (`transporte: ssh`). Si SSH se
+   cae, el modo `auto` vuelve a Guest Additions.
+
+En este flujo `--ssh-key` es opcional: la llave viaja en memoria desde el
+invitado. Para aceptar la llave del host remoto use `--ssh-known-hosts` con una
+entrada válida o, solo en laboratorio, `--ssh-insecure-ignore-host-key`; sin una
+de las dos la promoción falla y la consola avisa que continúa por Guest
+Additions.
+
 ### Modo `guestcontrol`: solo Guest Additions
 
 Útil en la etapa inicial, antes de que exista SSH:
@@ -72,6 +100,11 @@ para no dejarla en el historial del shell.
 La VM debe estar encendida y con las Guest Additions activas. El usuario
 indicado debe existir en el sistema invitado (normalmente `root`); si no es
 `root`, añada `-sudo`.
+
+Si además se pasa `--ssh-host` (y opcionalmente `--ssh-user` y los parámetros de
+verificación del host), este modo también promueve el transporte a SSH al generar
+la llave, igual que el modo `auto`. Sin `--ssh-host` no hay destino al que
+conectarse y la consola permanece en Guest Additions.
 
 ### Modo `local`: dentro del invitado
 
@@ -100,6 +133,37 @@ A partir de ahí la consola controla el invitado de forma remota:
 Si el usuario SSH no es `root`, añada `-sudo` (el usuario debe tener una regla
 `NOPASSWD` en `/etc/sudoers`).
 
+### Módulo HTTPaaS: hosting Apache bajo demanda
+
+El módulo HTTPaaS se ejecuta en el **host de VirtualBox** y no depende del
+transporte `-mode` de la consola. Recibe un hostname y un `.zip`, clona
+`template_server` con un disco diferencial, asigna la primera IPv4 libre de
+`192.168.10.30–192.168.10.99`, registra el A en Bind9 mediante `nsupdate` con
+TSIG y publica el sitio en Apache.
+
+```bash
+export NP2_HTTPAAS_PASSWORD='cambie-esta-clave'
+./appgo -listen :8080 -mode local -httpaas \
+  -httpaas-template template_server \
+  -httpaas-network-mode hostonly -httpaas-network vboxnet0 \
+  -httpaas-domain cloud.local \
+  -httpaas-dns-server 192.168.10.10 -httpaas-dns-zone cloud.local \
+  -httpaas-dns-key /etc/bind/httpaas.key \
+  -httpaas-guest-user np2deploy \
+  -auth-user admin -auth-pass 'otra-clave'
+```
+
+Abra `http://127.0.0.1:8080/httpaas`, escriba por ejemplo `paisajes` y pulse
+**Aceptar** (crea la VM y el registro DNS); después seleccione un `.zip` con
+`index.html` en la raíz y pulse **Publicar**. El resultado esperado es la VM
+`paisajes`, la IP `192.168.10.30`, el registro
+`paisajes.cloud.local. 300 IN A 192.168.10.30` y el enlace
+`http://paisajes.cloud.local/`. Use `-httpaas=false` para deshabilitar el
+módulo.
+
+La guía completa (arquitectura, scripts de laboratorio, flujo interno, rollback y
+diagnóstico) está en [`docs/httpaas.md`](docs/httpaas.md).
+
 ### Opciones
 
 ```
@@ -119,6 +183,33 @@ Si el usuario SSH no es `root`, añada `-sudo` (el usuario debe tener una regla
 -guestcontrol-vboxmanage string     ruta del ejecutable VBoxManage
 -haproxy-config string         ruta de haproxy.cfg (por defecto /etc/haproxy/haproxy.cfg)
 -haproxy-service string        servicio a recargar (por defecto haproxy)
+-httpaas                       habilita el módulo HTTPaaS (por defecto true)
+-httpaas-vboxmanage string     ejecutable VBoxManage (por defecto VBoxManage)
+-httpaas-host-sudo             ejecutar VBoxManage/nsupdate con sudo -n
+-httpaas-template string       VM plantilla (por defecto template_server)
+-httpaas-template-disk string  disco base; se autodetecta del controlador SATA
+-httpaas-disk-dir string       discos diferenciales (por defecto ./httpaas/disks)
+-httpaas-network-mode string   hostonly o bridged (por defecto hostonly)
+-httpaas-network string        red host-only o adaptador puente (por defecto vboxnet0)
+-httpaas-netmask int           prefijo de red (por defecto 24)
+-httpaas-gateway string        puerta de enlace (por defecto 192.168.10.1)
+-httpaas-ip-start, -httpaas-ip-end string  rango asignable (.30–.99)
+-httpaas-domain string         dominio de los enlaces (por defecto cloud.local)
+-httpaas-dns-server string     IP del servidor Bind9 (por defecto 192.168.10.10)
+-httpaas-dns-zone string       zona DNS a actualizar (por defecto cloud.local)
+-httpaas-dns-key string        llave TSIG para nsupdate (por defecto /etc/bind/httpaas.key)
+-httpaas-dns-ttl int           TTL de los A (por defecto 300)
+-httpaas-guest-user string     usuario del invitado (por defecto np2deploy)
+-httpaas-guest-password string contraseña del invitado (o NP2_HTTPAAS_PASSWORD)
+-httpaas-guest-sudo           sudo -n dentro del invitado (por defecto true)
+-httpaas-guest-iface string    interfaz del invitado; se autodetecta
+-httpaas-apache-root string    padre de los document roots (por defecto /var/www)
+-httpaas-http-port int         puerto HTTP de los enlaces (por defecto 80)
+-httpaas-memory int            RAM por instancia en MiB (por defecto 1024)
+-httpaas-cpus int              vCPUs por instancia (por defecto 2)
+-httpaas-boot-timeout duration espera máxima de Guest Additions (por defecto 4m)
+-httpaas-max-upload int        tamaño máximo del .zip en MiB (por defecto 64)
+-httpaas-state string          inventario JSON (por defecto ./httpaas/instances.json)
 -auth-user, -auth-pass string  protege la consola con HTTP Basic
 -version                       muestra la versión
 ```
@@ -151,6 +242,15 @@ Si el usuario SSH no es `root`, añada `-sudo` (el usuario debe tener una regla
   host mientras se ejecuta); prefiera la variable `NP2_GUEST_PASSWORD` y un
   usuario con privilegios mínimos. Nunca se registra en los informes: los
   comandos se muestran con la contraseña redactada.
+- **HTTPaaS:** el hostname se valida con RFC 1123 y el `.zip` se inspecciona
+  antes de transferirlo (sin `..`, rutas absolutas, enlaces simbólicos ni tipos
+  especiales; límites de entradas y tamaño). `VBoxManage` recibe un `argv`
+  explícito y `nsupdate` su protocolo por `stdin`; la llave TSIG se lee desde un
+  archivo `0600` y nunca se pasa por argumentos ni se imprime. El inventario se
+  guarda con escritura atómica y permisos `0600`, y las operaciones que lo
+  modifican están serializadas. Las VM `template_server` y `dns_server`, así
+  como el disco base de la plantilla, están protegidos contra borrado; cualquier
+  fallo durante el aprovisionamiento dispara un *rollback* de DNS, VM y disco.
 
 ## Servicios systemd
 
@@ -185,6 +285,9 @@ internal/op                 modelo del informe de resultados
 internal/validate           validadores de entrada
 internal/modules            lógica de cada módulo de automatización
 internal/web                rutas, manejadores, plantillas y recursos embebidos
+docs/httpaas.md             guía del módulo HTTPaaS
+scripts/                    red host-only, Bind9, plantilla y diagnóstico
+httpaas/                    inventario y discos diferenciales (generado)
 ```
 
 ## Pruebas
@@ -198,6 +301,9 @@ Las pruebas cubren los validadores (incluidos intentos de inyección), el
 transporte local, el transporte Guest Additions (decodificación del código de
 salida y redacción de la contraseña), el *failover* SSH → Guest Additions, la
 edición de `/etc/hosts`, el generador de unidades systemd, el banner de
-`/etc/issue` y las operaciones de backend de HAProxy.
+`/etc/issue`, las operaciones de backend de HAProxy y el módulo HTTPaaS
+(validación de `.zip`, protocolo `nsupdate`, asignación de IP y generación de
+vhost/interfaces).
 
-Consulte `docs/` para el escenario de pruebas y el plan de verificación.
+Consulte `docs/` para el escenario de pruebas, el plan de verificación y la guía
+HTTPaaS en [`docs/httpaas.md`](docs/httpaas.md).

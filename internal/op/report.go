@@ -5,6 +5,7 @@
 package op
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -93,13 +94,22 @@ func (r *Report) addStep(title string, res runner.Result, optional bool) bool {
 
 // Failf marks the operation as failed with a formatted message.
 func (r *Report) Failf(format string, args ...any) *Report {
-	r.Err = fmt.Errorf(format, args...)
-	return r
+	return r.Fail(fmt.Errorf(format, args...))
 }
 
-// Fail marks the operation as failed with err.
+// Fail marks the operation as failed with err. When a more specific error was
+// already recorded (for example the stderr of the failing command), it is kept
+// as the cause so a generic wrapper does not hide it.
 func (r *Report) Fail(err error) *Report {
-	r.Err = err
+	switch {
+	case err == nil:
+	case r.Err == nil || errors.Is(err, r.Err) || err.Error() == r.Err.Error():
+		r.Err = err
+	case strings.Contains(err.Error(), r.Err.Error()):
+		r.Err = err
+	default:
+		r.Err = fmt.Errorf("%w — causa: %w", err, r.Err)
+	}
 	return r
 }
 

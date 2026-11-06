@@ -28,7 +28,26 @@
     <h3>Balanceador HAProxy</h3>
     <p>Agrega o elimina servidores del backend y recarga el balanceador.</p>
   </a>
+  <a class="card link httpaas-card" href="/httpaas">
+    <h3>HTTP como servicio (HTTPaaS)</h3>
+    {{if .HTTPaaSEnabled}}
+    <p>Crea servidores Apache desde la plantilla, registra su nombre en Bind9 y publica el contenido de un .zip.</p>
+    <span class="pill-link">{{len .HTTPaaSInstances}} instancia(s) · {{.HTTPaaSDomain}}</span>
+    {{else}}
+    <p>Módulo deshabilitado. Actívelo con <code>-httpaas</code> y configure la plantilla, la red y Bind9.</p>
+    {{end}}
+  </a>
 </section>
+
+{{if .HTTPaaSEnabled}}
+<section class="card">
+  <div class="section-head">
+    <h3>Instancias HTTPaaS</h3>
+    <a class="btn small" href="/httpaas">Gestionar</a>
+  </div>
+  {{template "httpaas-instances" .}}
+</section>
+{{end}}
 
 <section class="card">
   <h3>Cómo funciona</h3>
@@ -36,7 +55,7 @@
     <li>Ejecute la consola en el host con <code>-mode guestcontrol</code> (o <code>-mode auto</code>) para controlar la VM mediante <code>VBoxManage</code> y las Guest Additions, sin necesidad de SSH.</li>
     <li>Con el modo <code>auto</code>, la consola intenta SSH primero y cae automáticamente a Guest Additions si no hay conexión.</li>
     <li>En modo <code>guestcontrol</code> o <code>auto</code>, use <em>Llave SSH de root</em> para generar el par de llaves y descargar la llave privada.</li>
-    <li>A partir de ese momento, SSH se convierte en el transporte principal; la consola sigue funcionando desde el navegador del host.</li>
+    <li>Si la consola se inició con <code>-ssh-host</code>, al terminar de generar la llave el transporte cambia automáticamente a <code>ssh</code>, sin reiniciar: la llave recién creada se usa en memoria. Si no se indicó un host SSH, la consola permanece en Guest Additions.</li>
     <li>Alternativamente, ejecute la consola en modo <code>local</code> dentro del invitado.</li>
   </ol>
 </section>

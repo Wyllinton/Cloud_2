@@ -75,6 +75,17 @@ func executableFile(ctx context.Context, r runner.Runner, path string) (bool, er
 	return true, nil
 }
 
+// fileTransfer returns the file-transfer mechanism of the active transport.
+// Switchable transports (the auto failover) report the capability of whichever
+// implementation is currently in use.
+func fileTransfer(r runner.Runner) (runner.FileTransfer, bool) {
+	if provider, ok := r.(runner.FileTransferProvider); ok {
+		return provider.FileTransfer()
+	}
+	ft, ok := r.(runner.FileTransfer)
+	return ft, ok
+}
+
 // readFile reads a target file. Transports that implement FileTransfer (the
 // Guest Additions channel) use their own copy mechanism; the rest read through
 // cat.
@@ -87,7 +98,7 @@ func readFile(ctx context.Context, r runner.Runner, path string) ([]byte, bool, 
 		return nil, false, nil
 	}
 
-	if ft, ok := r.(runner.FileTransfer); ok {
+	if ft, ok := fileTransfer(r); ok {
 		data, _, err := ft.ReadFile(ctx, path)
 		if err != nil {
 			return nil, true, fmt.Errorf("no se pudo leer %s: %w", path, err)
@@ -106,7 +117,7 @@ func readFile(ctx context.Context, r runner.Runner, path string) ([]byte, bool, 
 // command in the report. Transports that implement FileTransfer use their own
 // copy mechanism.
 func writeFile(ctx context.Context, r runner.Runner, rep *op.Report, path string, data []byte, mode uint32) error {
-	if ft, ok := r.(runner.FileTransfer); ok {
+	if ft, ok := fileTransfer(r); ok {
 		steps, err := ft.WriteFile(ctx, path, data, mode)
 		for _, s := range steps {
 			rep.Step("Transferir "+path, s)
