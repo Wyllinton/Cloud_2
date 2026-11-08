@@ -2,10 +2,12 @@ package web
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
+	"path/filepath"
 	"strings"
 
 	"np2/appgo/internal/modules"
@@ -18,6 +20,7 @@ const maxUploadSize = 64 << 20 // 64 MiB
 func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	v := s.newView("dashboard", "Consola de automatización", "inicio")
 	v.Flash = s.runner.Target()
+	s.loadHTTPaaS(v)
 	s.render(w, "dashboard", v)
 }
 
@@ -459,6 +462,156 @@ func (s *Server) loadHAProxy(ctx context.Context, v *view) {
 		return
 	}
 	v.Backends = modules.ParseBackends(cfg)
+}
+
+// --- HTTPaaS ----------------------------------------------------------------
+
+func (s *Server) handleHTTPaaS(w http.ResponseWriter, r *http.Request) {
+	v := s.newView("httpaas", "HTTP como servicio (HTTPaaS)", "httpaas")
+	ctx, cancel := s.opContext(r)
+	defer cancel()
+	if s.httpaas == nil {
+		v.Error = "El módulo HTTPaaS está deshabilitado. Inicie la consola con -httpaas y configure la plantilla y el DNS."
+		s.loadHTTPaaS(v)
+		s.render(w, "httpaas", v)
+		return
+	}
+	if err := s.httpaas.Refresh(ctx); err != nil && v.Error == "" {
+		v.Error = err.Error()
+	}
+	s.loadHTTPaaS(v)
+	s.render(w, "httpaas", v)
+}
+
+func (s *Server) handleHTTPaaSCreate(w http.ResponseWriter, r *http.Request) {
+	v := s.newView("httpaas", "Aprovisionar instancia HTTPaaS", "httpaas")
+	ctx, cancel := s.opContext(r)
+	defer cancel()
+	if s.httpaas == nil {
+		v.Error = "El módulo HTTPaaS está deshabilitado."
+		s.loadHTTPaaS(v)
+		s.render(w, "httpaas", v)
+		return
+	}
+	// "Aceptar" only needs the hostname; a zip attached at the same time is
+	// deployed in the same operation.
+	name, data, err := s.readZipUpload(w, r, false)
+	v.Form = map[string]string{"hostname": r.FormValue("hostname")}
+	if err != nil {
+		v.Error = err.Error()
+		s.loadHTTPaaS(v)
+		s.render(w, "httpaas", v)
+		return
+	}
+	v.Report = s.httpaas.Provision(ctx, modules.HTTPaaSProvisionRequest{
+		Hostname: r.FormValue("hostname"),
+		ZipName:  name,
+		Zip:      data,
+	})
+	s.finalize(v)
+	s.loadHTTPaaS(v)
+	s.render(w, "httpaas", v)
+}
+
+func (s *Server) handleHTTPaaSPublish(w http.ResponseWriter, r *http.Request) {
+	v := s.newView("httpaas", "Publicar contenido HTTPaaS", "httpaas")
+	ctx, cancel := s.opContext(r)
+	defer cancel()
+	if s.httpaas == nil {
+		v.Error = "El módulo HTTPaaS está deshabilitado."
+		s.loadHTTPaaS(v)
+		s.render(w, "httpaas", v)
+		return
+	}
+	name, data, err := s.readZipUpload(w, r, true)
+	v.Form = map[string]string{"hostname": r.FormValue("hostname")}
+	if err != nil {
+		v.Error = err.Error()
+		s.loadHTTPaaS(v)
+		s.render(w, "httpaas", v)
+		return
+	}
+	v.Report = s.httpaas.Publish(ctx, modules.HTTPaaSPublishRequest{
+		Hostname: r.FormValue("hostname"),
+		ZipName:  name,
+		Zip:      data,
+	})
+	s.finalize(v)
+	s.loadHTTPaaS(v)
+	s.render(w, "httpaas", v)
+}
+
+// readZipUpload parses the multipart form and returns the "archivo" field. The
+// body is bounded before parsing; with required=false a missing file is not an
+// error and returns empty values.
+func (s *Server) readZipUpload(w http.ResponseWriter, r *http.Request, required bool) (string, []byte, error) {
+	maxBytes := int64(s.cfg.HTTPaaS.MaxUploadMiB) << 20
+	if maxBytes <= 0 {
+		maxBytes = maxUploadSize
+	}
+	// Leave room for the multipart headers and the hostname field.
+	r.Body = http.MaxBytesReader(w, r.Body, maxBytes+(1<<20))
+	if err := r.ParseMultipartForm(maxBytes + (1 << 20)); err != nil {
+		return "", nil, fmt.Errorf("No se pudo procesar el formulario con el archivo .zip: %w", err)
+	}
+	if r.MultipartForm != nil {
+		defer r.MultipartForm.RemoveAll()
+	}
+
+	file, header, err := r.FormFile("archivo")
+	if errors.Is(err, http.ErrMissingFile) || (err == nil && header.Size == 0 && header.Filename == "") {
+		if required {
+			return "", nil, errors.New("Seleccione el archivo .zip con el contenido web antes de pulsar «Publicar».")
+		}
+		return "", nil, nil
+	}
+	if err != nil {
+		return "", nil, fmt.Errorf("No se pudo leer el archivo adjunto: %w", err)
+	}
+	defer file.Close()
+
+	name := filepath.Base(header.Filename)
+	if !strings.HasSuffix(strings.ToLower(name), ".zip") {
+		return "", nil, errors.New("El archivo debe tener extensión .zip.")
+	}
+	data, err := io.ReadAll(io.LimitReader(file, maxBytes+1))
+	if err != nil {
+		return "", nil, fmt.Errorf("No se pudo leer el archivo .zip: %w", err)
+	}
+	if int64(len(data)) > maxBytes {
+		return "", nil, fmt.Errorf("El archivo supera el máximo de %d MiB.", maxBytes>>20)
+	}
+	if len(data) == 0 {
+		return "", nil, errors.New("El archivo .zip está vacío.")
+	}
+	return name, data, nil
+}
+
+func (s *Server) handleHTTPaaSDelete(w http.ResponseWriter, r *http.Request) {
+	v := s.newView("httpaas", "Eliminar instancia HTTPaaS", "httpaas")
+	ctx, cancel := s.opContext(r)
+	defer cancel()
+	if s.httpaas == nil {
+		v.Error = "El módulo HTTPaaS está deshabilitado."
+		s.loadHTTPaaS(v)
+		s.render(w, "httpaas", v)
+		return
+	}
+	v.Report = s.httpaas.Delete(ctx, r.FormValue("hostname"))
+	s.finalize(v)
+	s.loadHTTPaaS(v)
+	s.render(w, "httpaas", v)
+}
+
+func (s *Server) loadHTTPaaS(v *view) {
+	v.HTTPaaSEnabled = s.httpaas != nil
+	if s.httpaas == nil {
+		return
+	}
+	v.HTTPaaSDomain = s.httpaas.Domain()
+	v.HTTPaaSIPRange = s.httpaas.IPRange()
+	v.HTTPaaSTemplate = s.httpaas.Template()
+	v.HTTPaaSInstances = s.httpaas.List()
 }
 
 // --- downloads ---------------------------------------------------------------

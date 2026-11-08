@@ -65,6 +65,13 @@ type view struct {
 	Preview         string
 	Form            map[string]string
 	Fields          []string
+
+	// HTTPaaS data.
+	HTTPaaSEnabled   bool
+	HTTPaaSInstances []modules.HTTPaaSInstance
+	HTTPaaSDomain    string
+	HTTPaaSIPRange   string
+	HTTPaaSTemplate  string
 }
 
 // Server wires the modules to HTTP handlers.
@@ -78,6 +85,7 @@ type Server struct {
 	users     *modules.UserManager
 	systemd   *modules.SystemdManager
 	haproxy   *modules.HAProxyManager
+	httpaas   *modules.HTTPaaSManager
 	templates map[string]*template.Template
 	artifacts *artifactStore
 }
@@ -96,6 +104,13 @@ func New(cfg config.Config, r runner.Runner) (*Server, error) {
 		haproxy:   modules.NewHAProxyManager(r, cfg.HAProxy.ConfigPath, cfg.HAProxy.Service),
 		artifacts: newArtifactStore(30 * time.Minute),
 	}
+	if cfg.HTTPaaS.Enabled {
+		httpaas, err := modules.NewHTTPaaSManager(cfg.HTTPaaS)
+		if err != nil {
+			return nil, fmt.Errorf("módulo HTTPaaS: %w", err)
+		}
+		s.httpaas = httpaas
+	}
 	if err := s.parseTemplates(); err != nil {
 		return nil, err
 	}
@@ -104,7 +119,7 @@ func New(cfg config.Config, r runner.Runner) (*Server, error) {
 
 var pages = []string{
 	"dashboard", "packages", "rootssh", "issue", "hostname",
-	"users", "services", "haproxy",
+	"users", "services", "haproxy", "httpaas",
 }
 
 func (s *Server) parseTemplates() error {
@@ -158,6 +173,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /haproxy/agregar", s.handleHAProxyAdd)
 	mux.HandleFunc("POST /haproxy/eliminar", s.handleHAProxyRemove)
 
+	mux.HandleFunc("GET /httpaas", s.handleHTTPaaS)
+	mux.HandleFunc("POST /httpaas/crear", s.handleHTTPaaSCreate)
+	mux.HandleFunc("POST /httpaas/publicar", s.handleHTTPaaSPublish)
+	mux.HandleFunc("POST /httpaas/eliminar", s.handleHTTPaaSDelete)
+
 	mux.HandleFunc("GET /descargas/{id}", s.handleDownload)
 	mux.HandleFunc("GET /salud", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -198,6 +218,10 @@ func (s *Server) render(w http.ResponseWriter, page string, v *view) {
 		http.Error(w, "template no encontrada: "+page, http.StatusInternalServerError)
 		return
 	}
+	// The transport may have been promoted to SSH while this request ran, so
+	// refresh the header instead of showing the mode captured at the start.
+	v.Target = s.runner.Target()
+	v.Mode = s.runner.Kind()
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := t.ExecuteTemplate(w, "layout", v); err != nil {
 		log.Printf("render %s: %v", page, err)

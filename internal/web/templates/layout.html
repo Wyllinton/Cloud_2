@@ -33,6 +33,8 @@
     <a class="{{if eq .Active "usuarios"}}active{{end}}" href="/usuarios">Usuarios</a>
     <a class="{{if eq .Active "servicios"}}active{{end}}" href="/servicios">Servicios systemd</a>
     <a class="{{if eq .Active "haproxy"}}active{{end}}" href="/haproxy">Balanceador HAProxy</a>
+    <span class="group">Nube</span>
+    <a class="{{if eq .Active "httpaas"}}active{{end}}" href="/httpaas">HTTP como servicio</a>
   </nav>
 
   <main class="content">

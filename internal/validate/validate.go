@@ -158,6 +158,31 @@ func Address(s string) (string, error) {
 	return strings.ToLower(s), nil
 }
 
+// IPv4 validates a literal IPv4 address and returns its canonical form.
+func IPv4(s string) (string, error) {
+	s = strings.TrimSpace(s)
+	ip := net.ParseIP(s)
+	if ip == nil || ip.To4() == nil {
+		return "", fmt.Errorf("dirección IPv4 inválida %q", s)
+	}
+	return ip.To4().String(), nil
+}
+
+// Domain validates a DNS domain name (for example cloud.local). A trailing dot
+// is accepted and removed, because zone files and nsupdate use the fully
+// qualified form.
+func Domain(label, s string) (string, error) {
+	s = strings.TrimSpace(s)
+	s = strings.TrimSuffix(s, ".")
+	if s == "" {
+		return "", fmt.Errorf("%s no puede estar vacío", label)
+	}
+	if len(s) > 253 || !reDNSName.MatchString(s) {
+		return "", fmt.Errorf("%s inválido %q: use etiquetas DNS separadas por puntos", label, s)
+	}
+	return strings.ToLower(s), nil
+}
+
 // Port validates a TCP/UDP port number.
 func Port(s string) (int, error) {
 	s = strings.TrimSpace(s)

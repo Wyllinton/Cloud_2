@@ -1,0 +1,96 @@
+{{define "content"}}
+{{if not .HTTPaaSEnabled}}
+<section class="card warn-card">
+  <h3>Módulo HTTPaaS deshabilitado</h3>
+  <p>Inicie la consola en el <strong>host de VirtualBox</strong> con el módulo habilitado y los datos de su laboratorio:</p>
+  <pre class="cmd">./appgo -listen :8080 -httpaas \
+  -httpaas-template template_server \
+  -httpaas-network-mode hostonly -httpaas-network vboxnet0 \
+  -httpaas-domain cloud.local -httpaas-dns-server 192.168.10.10 \
+  -httpaas-dns-key /etc/bind/httpaas.key \
+  -httpaas-guest-user np2deploy</pre>
+  <p class="hint">La contraseña del invitado se puede pasar con <code>NP2_HTTPAAS_PASSWORD</code> para no dejarla en el historial del shell. Consulte <code>docs/httpaas.md</code> y los scripts de <code>scripts/</code>.</p>
+</section>
+{{else}}
+<section class="hero card">
+  <div class="hero-copy">
+    <span class="eyebrow">Servicio administrado</span>
+    <h2>Un Apache por solicitud, con DNS y disco propio</h2>
+    <p>Cada instancia nace de un disco diferencial sobre <strong>{{.HTTPaaSTemplate}}</strong>, recibe una IP única, se registra en Bind9 y publica el contenido del <code>.zip</code> en su propio directorio.</p>
+  </div>
+  <div class="metrics">
+    <div class="metric">
+      <span class="metric-value">{{len .HTTPaaSInstances}}</span>
+      <span class="metric-label">instancias</span>
+    </div>
+    <div class="metric">
+      <span class="metric-value mono">{{.HTTPaaSDomain}}</span>
+      <span class="metric-label">dominio DNS</span>
+    </div>
+    <div class="metric">
+      <span class="metric-value mono">{{.HTTPaaSIPRange}}</span>
+      <span class="metric-label">rango asignable</span>
+    </div>
+  </div>
+</section>
+
+<section class="card httpaas-console">
+  <h3 class="console-title">Gestión de páginas y aplicaciones web</h3>
+  <form method="post" action="/httpaas/crear" enctype="multipart/form-data" class="console-form">
+    <label for="hp-host">Nombre del host</label>
+    <div class="console-row">
+      <input id="hp-host" name="hostname" placeholder="paisajes" maxlength="63" required autocomplete="off"
+             list="hp-hosts" pattern="[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?" value="{{index .Form "hostname"}}">
+      <button class="btn" type="submit" formaction="/httpaas/crear"
+              onclick="this.form.archivo.required=false"
+              title="Crea la máquina virtual, asigna IP y hostname y registra el host en Bind9">Aceptar</button>
+    </div>
+    <datalist id="hp-hosts">{{range .HTTPaaSInstances}}<option value="{{.Hostname}}">{{.FQDN}}</option>{{end}}</datalist>
+    <span class="hint">Una etiqueta DNS (letras, números y guiones). El sitio quedará en <span class="mono">&lt;host&gt;.{{.HTTPaaSDomain}}</span>.</span>
+
+    <label for="hp-zip">Contenido web (comprimido)</label>
+    <div class="console-row">
+      <input id="hp-zip" type="file" name="archivo" accept=".zip,application/zip">
+      <button class="btn primary" type="submit" formaction="/httpaas/publicar"
+              onclick="this.form.archivo.required=true"
+              title="Envía el .zip a la instancia indicada y lo despliega en su directorio de Apache">Publicar</button>
+    </div>
+    <span class="hint">El <code>index.html</code> debe estar en la raíz del zip. Publicar de nuevo reemplaza el contenido anterior. Se rechazan rutas absolutas, <code>..</code> y enlaces simbólicos.</span>
+  </form>
+  <p class="hint console-note">Cada operación es no interactiva y puede tardar unos minutos (arranque de la VM y Guest Additions). No cierre la pestaña mientras se ejecuta.</p>
+
+  <div class="section-head instances-head">
+    <h4>Instancias disponibles</h4>
+    <a class="btn small" href="/httpaas">Actualizar estado</a>
+  </div>
+  {{template "httpaas-instances" .}}
+</section>
+
+<details class="card">
+  <summary><strong>Antes de aprovisionar</strong></summary>
+  <ul class="checklist">
+    <li>La plantilla <span class="mono">{{.HTTPaaSTemplate}}</span> debe estar <strong>apagada</strong>; su disco multiconexión se usa como padre de un disco diferencial por instancia.</li>
+    <li>La red host-only (o el puente) debe permitir alcanzar la puerta de enlace y al servidor DNS.</li>
+    <li>El usuario invitado debe existir en la plantilla, tener contraseña, <em>sudo</em> sin contraseña y Guest Additions activas.</li>
+    <li>Bind9 debe aceptar actualizaciones con la llave TSIG configurada en <code>-httpaas-dns-key</code>, y el host debe tener <span class="mono">nsupdate</span> con la llave en modo <code>0600</code>.</li>
+  </ul>
+  <div class="callout">
+    <strong>Seguridad</strong>
+    <p>El zip se inspecciona en memoria antes de enviarse, el hostname se valida con RFC 1123 y la eliminación solo opera sobre máquinas del inventario creadas por este módulo. La plantilla y el servidor DNS están protegidos.</p>
+  </div>
+</details>
+
+<details class="card">
+  <summary><strong>Flujo automatizado</strong></summary>
+  <ol class="steps-list">
+    <li><strong>Aceptar → reserva:</strong> se valida el hostname y se elige la primera IPv4 libre del rango, sin reutilizar direcciones del inventario.</li>
+    <li><strong>Hardware:</strong> <code>VBoxManage createmedium diff</code> sobre el disco de la plantilla, <code>createvm</code>, <code>modifyvm</code> y <code>storageattach</code>.</li>
+    <li><strong>Invitado:</strong> tras arrancar en modo headless, se espera Guest Additions y se configuran hostname, IP estática, <code>/etc/hosts</code> y resolutor.</li>
+    <li><strong>Apache:</strong> se crea el directorio propio, el vhost, se valida con <code>apache2ctl configtest</code> y se recarga el servicio.</li>
+    <li><strong>Publicar → contenido:</strong> el zip se transfiere con <code>copyto</code>, se extrae en el document root y se ajusta el propietario a <code>www-data</code>.</li>
+    <li><strong>DNS:</strong> <code>nsupdate</code> elimina cualquier A anterior y agrega el nuevo registro en la zona local.</li>
+    <li><strong>Eliminación:</strong> apaga la VM, borra el A, ejecuta <code>unregistervm --delete</code>, elimina el disco diferencial y actualiza el inventario.</li>
+  </ol>
+</details>
+{{end}}
+{{end}}

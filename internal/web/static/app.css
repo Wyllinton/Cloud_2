@@ -153,10 +153,91 @@ tbody tr:hover { background: var(--panel-2); }
 
 .steps-list { color: var(--muted); }
 
+/* --- HTTPaaS ------------------------------------------------------------- */
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 1fr);
+  gap: 24px;
+  align-items: center;
+  background:
+    radial-gradient(700px 240px at 10% -20%, rgba(63, 140, 255, 0.28), transparent 60%),
+    radial-gradient(500px 220px at 100% 0%, rgba(122, 92, 255, 0.22), transparent 62%),
+    var(--panel);
+  border-color: #2c4a78;
+}
+.hero-copy h2 { margin: 4px 0 8px; font-size: 1.35rem; }
+.hero-copy p { color: var(--muted); margin: 0; }
+.eyebrow { color: #8fb8ff; text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.7rem; font-weight: 700; }
+.metrics { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.metric {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  padding: 10px 14px; border: 1px solid var(--border); border-radius: 9px;
+  background: rgba(10, 14, 19, 0.55);
+}
+.metric-value { font-size: 1.02rem; font-weight: 700; color: #dce8f8; }
+.metric-label { color: var(--muted); font-size: 0.8rem; }
+
+.card.link.httpaas-card { border-color: #2c4a78; }
+.pill-link {
+  display: inline-block; margin-top: 10px; padding: 3px 9px; border-radius: 999px;
+  background: rgba(63, 140, 255, 0.14); border: 1px solid #2c4a78; color: #9fc5ff;
+  font-size: 0.76rem; font-family: ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace;
+}
+
+.status {
+  display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 0.74rem;
+  text-transform: uppercase; letter-spacing: 0.06em; border: 1px solid var(--border);
+  color: var(--muted); background: var(--panel-2);
+}
+.status.running { color: #7ee787; border-color: #2b5c33; background: var(--ok-bg); }
+.status.stopped { color: #ffd479; border-color: #6b5320; background: var(--warn-bg); }
+.status.missing { color: #ffb4ae; border-color: #71322f; background: var(--err-bg); }
+.status.unknown { color: var(--muted); }
+
+.btn.small { padding: 5px 10px; font-size: 0.82rem; }
+.right { text-align: right; }
+.right form { margin: 0; }
+.section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.section-head h3 { margin: 0; }
+table.instances td { vertical-align: middle; }
+table.instances .hint { margin-top: 2px; }
+
+.empty {
+  padding: 22px; border: 1px dashed var(--border); border-radius: var(--radius);
+  color: var(--muted); text-align: center; background: rgba(10, 14, 19, 0.4);
+}
+.checklist { margin: 0; padding-left: 20px; color: var(--muted); }
+.checklist li { margin: 7px 0; }
+.callout {
+  margin-top: 14px; padding: 12px 14px; border-radius: 9px;
+  background: rgba(63, 140, 255, 0.08); border: 1px solid #2c4a78;
+}
+.callout p { margin: 5px 0 0; color: var(--muted); font-size: 0.88rem; }
+label .hint { display: block; margin-top: 5px; font-size: 0.82rem; }
+
 .footer { padding: 14px 22px; color: var(--muted); border-top: 1px solid var(--border); font-size: 0.82rem; }
 
 @media (max-width: 900px) {
   .shell { grid-template-columns: 1fr; }
   .sidebar { border-right: none; border-bottom: 1px solid var(--border); }
-  .columns, .two-col { grid-template-columns: 1fr; }
+  .columns, .two-col, .hero { grid-template-columns: 1fr; }
 }
+
+/* HTTPaaS console — layout of the statement mock-up */
+.httpaas-console { border-color: #2c4a78; background: linear-gradient(180deg, #1a2638 0%, var(--panel) 60%); }
+.console-title { text-align: center; font-size: 1.2rem; margin-bottom: 18px; }
+.console-form { display: grid; gap: 6px; max-width: 640px; }
+.console-form label { margin: 10px 0 0; font-size: 0.85rem; color: var(--muted); }
+.console-row { display: flex; gap: 10px; align-items: stretch; flex-wrap: wrap; }
+.console-row input { flex: 1; min-width: 0; margin: 0; }
+.console-row .btn { min-width: 96px; }
+.console-note { margin: 14px 0 0; }
+.instances-head { margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--border); }
+.instances-head h4 { margin: 0; }
+.site-link { color: #79b8ff; text-decoration: underline; white-space: nowrap; }
+.nowrap { white-space: nowrap; }
+.btn.danger-solid { background: #d1242f; border-color: #d1242f; color: #fff; }
+.btn.danger-solid:hover { background: #b31d27; border-color: var(--err); }
+details.card > summary { cursor: pointer; }
+details.card[open] > summary { margin-bottom: 10px; }

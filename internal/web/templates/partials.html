@@ -13,6 +13,56 @@
 {{end}}
 {{end}}
 
+{{define "httpaas-instances"}}
+{{if .HTTPaaSInstances}}
+<div class="table-wrap">
+  <table class="instances">
+    <thead>
+      <tr>
+        <th>Enlace</th>
+        <th>Dirección IP</th>
+        <th>Host</th>
+        <th>Creada</th>
+        <th>Estado</th>
+        <th>Contenido</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .HTTPaaSInstances}}
+      <tr>
+        <td>
+          <a class="site-link mono" href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{.URL}}</a>
+          <div class="hint"><a href="{{.IPURL}}" target="_blank" rel="noopener noreferrer">probar por IP</a></div>
+        </td>
+        <td class="mono">{{.Address}}</td>
+        <td><strong class="mono">{{.Hostname}}</strong><div class="hint mono">VM: {{.VM}}</div></td>
+        <td class="mono nowrap">{{.CreatedAt.Local.Format "2006-01-02 15:04:05"}}</td>
+        <td><span class="status {{.Status}}">{{.Status}}</span></td>
+        <td>
+          {{if .Published}}
+          <span class="mono">{{.ContentName}}</span>
+          <div class="hint mono">{{.PublishedAt.Local.Format "2006-01-02 15:04"}}</div>
+          {{else}}<span class="hint">pendiente de publicar</span>{{end}}
+        </td>
+        <td class="right">
+          <form method="post" action="/httpaas/eliminar" onsubmit="return confirm('¿Eliminar la instancia {{.FQDN}}? Se apagará y borrará la máquina virtual, su disco y el registro DNS.');">
+            <input type="hidden" name="hostname" value="{{.Hostname}}">
+            <button class="btn danger-solid small" type="submit">Eliminar</button>
+          </form>
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+{{else}}
+<div class="empty">
+  Todavía no hay instancias. Escriba un nombre de host y pulse «Aceptar» para crear la primera.
+</div>
+{{end}}
+{{end}}
+
 {{define "report"}}
 <section class="card result {{if .Report.OK}}ok{{else}}bad{{end}}">
   <h3>

@@ -118,6 +118,25 @@ func TestAddressAndPort(t *testing.T) {
 	}
 }
 
+func TestIPv4AndDomain(t *testing.T) {
+	if got, err := IPv4(" 192.168.10.30 "); err != nil || got != "192.168.10.30" {
+		t.Errorf("IPv4 = %q, %v", got, err)
+	}
+	for _, bad := range []string{"", "192.168.10.300", "::1", "paisajes", "192.168.10.30;id"} {
+		if _, err := IPv4(bad); err == nil {
+			t.Errorf("IPv4(%q) debía fallar", bad)
+		}
+	}
+	if got, err := Domain("dominio", "Cloud.Local."); err != nil || got != "cloud.local" {
+		t.Errorf("Domain = %q, %v", got, err)
+	}
+	for _, bad := range []string{"", "cloud..local", "cloud local", "cloud.local;id"} {
+		if _, err := Domain("dominio", bad); err == nil {
+			t.Errorf("Domain(%q) debía fallar", bad)
+		}
+	}
+}
+
 func TestAbsolutePathAndFilename(t *testing.T) {
 	if _, err := AbsolutePath("dir", "/opt/catalogo"); err != nil {
 		t.Errorf("AbsolutePath válido: %v", err)

@@ -1,7 +1,17 @@
 BINARY := appgo
 GO ?= go
 
-.PHONY: build run run-auto run-guestcontrol run-ssh test vet fmt clean
+# Valores del laboratorio HTTPaaS. Sobrescríbalos en la línea de comandos:
+#   make run-httpaas HTTPAAS_DNS_SERVER=192.168.10.10
+HTTPAAS_TEMPLATE ?= template_server
+HTTPAAS_NETWORK ?= vboxnet0
+HTTPAAS_DOMAIN ?= cloud.local
+HTTPAAS_DNS_SERVER ?= 192.168.10.10
+HTTPAAS_DNS_ZONE ?= cloud.local
+HTTPAAS_DNS_KEY ?= /etc/bind/httpaas.key
+HTTPAAS_GUEST_USER ?= np2deploy
+
+.PHONY: build run run-auto run-guestcontrol run-ssh run-httpaas test vet fmt clean
 
 build:
 	$(GO) build -o $(BINARY) .
@@ -25,6 +35,18 @@ run:
 # Etapa final: control remoto por SSH solo con llave (ajuste los valores).
 run-ssh:
 	$(GO) run . -listen :8080 -mode ssh -ssh-host 192.168.1.10 -ssh-user root -ssh-key ./root_id_ed25519
+
+# Módulo HTTPaaS en el host: VBoxManage + nsupdate + Guest Additions.
+# La contraseña del invitado se toma de NP2_HTTPAAS_PASSWORD.
+run-httpaas:
+	$(GO) run . -listen :8080 -mode local -httpaas \
+		-httpaas-template $(HTTPAAS_TEMPLATE) \
+		-httpaas-network-mode hostonly -httpaas-network $(HTTPAAS_NETWORK) \
+		-httpaas-domain $(HTTPAAS_DOMAIN) \
+		-httpaas-dns-server $(HTTPAAS_DNS_SERVER) \
+		-httpaas-dns-zone $(HTTPAAS_DNS_ZONE) \
+		-httpaas-dns-key $(HTTPAAS_DNS_KEY) \
+		-httpaas-guest-user $(HTTPAAS_GUEST_USER)
 
 test:
 	$(GO) test ./...

@@ -82,6 +82,36 @@ func run() error {
 	flag.StringVar(&cfg.HAProxy.ConfigPath, "haproxy-config", cfg.HAProxy.ConfigPath, "ruta de haproxy.cfg")
 	flag.StringVar(&cfg.HAProxy.Service, "haproxy-service", cfg.HAProxy.Service, "nombre del servicio HAProxy a recargar")
 
+	flag.BoolVar(&cfg.HTTPaaS.Enabled, "httpaas", cfg.HTTPaaS.Enabled, "habilitar el módulo HTTP como servicio")
+	flag.StringVar(&cfg.HTTPaaS.VBoxManage, "httpaas-vboxmanage", cfg.HTTPaaS.VBoxManage, "ruta de VBoxManage en el host")
+	flag.BoolVar(&cfg.HTTPaaS.HostSudo, "httpaas-host-sudo", cfg.HTTPaaS.HostSudo, "ejecutar VBoxManage/nsupdate con sudo -n")
+	flag.StringVar(&cfg.HTTPaaS.TemplateVM, "httpaas-template", cfg.HTTPaaS.TemplateVM, "máquina virtual plantilla")
+	flag.StringVar(&cfg.HTTPaaS.TemplateDisk, "httpaas-template-disk", cfg.HTTPaaS.TemplateDisk, "disco base de la plantilla (se autodetecta si está vacío)")
+	flag.StringVar(&cfg.HTTPaaS.VMPrefix, "httpaas-vm-prefix", cfg.HTTPaaS.VMPrefix, "prefijo del nombre de las VM (vacío: la VM se llama como el host)")
+	flag.StringVar(&cfg.HTTPaaS.DiskDir, "httpaas-disk-dir", cfg.HTTPaaS.DiskDir, "directorio de discos diferenciales")
+	flag.StringVar(&cfg.HTTPaaS.NetworkMode, "httpaas-network-mode", cfg.HTTPaaS.NetworkMode, "red de las instancias: hostonly o bridged")
+	flag.StringVar(&cfg.HTTPaaS.NetworkName, "httpaas-network", cfg.HTTPaaS.NetworkName, "red host-only o adaptador puente")
+	flag.IntVar(&cfg.HTTPaaS.Netmask, "httpaas-netmask", cfg.HTTPaaS.Netmask, "prefijo de red de las instancias (por ejemplo 24)")
+	flag.StringVar(&cfg.HTTPaaS.Gateway, "httpaas-gateway", cfg.HTTPaaS.Gateway, "puerta de enlace de las instancias")
+	flag.StringVar(&cfg.HTTPaaS.IPStart, "httpaas-ip-start", cfg.HTTPaaS.IPStart, "primera IP asignable")
+	flag.StringVar(&cfg.HTTPaaS.IPEnd, "httpaas-ip-end", cfg.HTTPaaS.IPEnd, "última IP asignable")
+	flag.StringVar(&cfg.HTTPaaS.Domain, "httpaas-domain", cfg.HTTPaaS.Domain, "dominio de los enlaces (cloud.local)")
+	flag.StringVar(&cfg.HTTPaaS.DNSServer, "httpaas-dns-server", cfg.HTTPaaS.DNSServer, "IP del servidor Bind9")
+	flag.StringVar(&cfg.HTTPaaS.DNSZone, "httpaas-dns-zone", cfg.HTTPaaS.DNSZone, "zona DNS que se actualiza")
+	flag.StringVar(&cfg.HTTPaaS.DNSKeyFile, "httpaas-dns-key", cfg.HTTPaaS.DNSKeyFile, "llave TSIG para nsupdate (chmod 600)")
+	flag.IntVar(&cfg.HTTPaaS.DNSTTL, "httpaas-dns-ttl", cfg.HTTPaaS.DNSTTL, "TTL de los registros A")
+	flag.StringVar(&cfg.HTTPaaS.GuestUser, "httpaas-guest-user", cfg.HTTPaaS.GuestUser, "usuario del invitado con Guest Additions")
+	flag.StringVar(&cfg.HTTPaaS.GuestPassword, "httpaas-guest-password", cfg.HTTPaaS.GuestPassword, "contraseña del usuario invitado (o NP2_HTTPAAS_PASSWORD)")
+	flag.BoolVar(&cfg.HTTPaaS.GuestSudo, "httpaas-guest-sudo", cfg.HTTPaaS.GuestSudo, "prefijar comandos del invitado con sudo -n")
+	flag.StringVar(&cfg.HTTPaaS.GuestInterface, "httpaas-guest-iface", cfg.HTTPaaS.GuestInterface, "interfaz de red del invitado (se autodetecta si está vacía)")
+	flag.StringVar(&cfg.HTTPaaS.ApacheRoot, "httpaas-apache-root", cfg.HTTPaaS.ApacheRoot, "directorio padre de los sitios Apache")
+	flag.IntVar(&cfg.HTTPaaS.HTTPPort, "httpaas-http-port", cfg.HTTPaaS.HTTPPort, "puerto HTTP de los enlaces")
+	flag.IntVar(&cfg.HTTPaaS.MemoryMB, "httpaas-memory", cfg.HTTPaaS.MemoryMB, "memoria RAM de cada instancia (MiB)")
+	flag.IntVar(&cfg.HTTPaaS.CPUs, "httpaas-cpus", cfg.HTTPaaS.CPUs, "vCPUs de cada instancia")
+	flag.DurationVar(&cfg.HTTPaaS.BootTimeout, "httpaas-boot-timeout", cfg.HTTPaaS.BootTimeout, "espera máxima de Guest Additions")
+	flag.IntVar(&cfg.HTTPaaS.MaxUploadMiB, "httpaas-max-upload", cfg.HTTPaaS.MaxUploadMiB, "tamaño máximo del .zip (MiB)")
+	flag.StringVar(&cfg.HTTPaaS.StatePath, "httpaas-state", cfg.HTTPaaS.StatePath, "inventario JSON de instancias")
+
 	flag.StringVar(&cfg.AuthUser, "auth-user", "", "usuario para proteger la consola con HTTP Basic")
 	flag.StringVar(&cfg.AuthPass, "auth-pass", "", "contraseña para proteger la consola con HTTP Basic")
 
@@ -96,6 +126,12 @@ func run() error {
 	// not stored in shell history.
 	if cfg.GuestControl.Password == "" {
 		cfg.GuestControl.Password = os.Getenv("NP2_GUEST_PASSWORD")
+	}
+	if cfg.HTTPaaS.GuestPassword == "" {
+		cfg.HTTPaaS.GuestPassword = os.Getenv("NP2_HTTPAAS_PASSWORD")
+	}
+	if cfg.HTTPaaS.GuestPassword == "" {
+		cfg.HTTPaaS.GuestPassword = cfg.GuestControl.Password
 	}
 
 	if err := cfg.Validate(); err != nil {
@@ -184,19 +220,26 @@ func buildRunner(cfg config.Config) (runner.Runner, error) {
 			return nil, errors.New("el modo guestcontrol requiere -guestcontrol-vm")
 		}
 		pingGuestControl(gc)
+		if cfg.HasSSH() {
+			log.Printf("modo guestcontrol: SSH se activará automáticamente tras generar la llave para %s", sshTarget(cfg))
+			return runner.NewBootstrapFailover(gc, sshTarget(cfg), sshConnector(cfg)), nil
+		}
 		return gc, nil
 
 	case config.ModeAuto:
 		var sshRunner runner.Runner
+		var sshErr error
 		if cfg.HasSSH() {
-			r, err := newSSH(cfg)
-			if err != nil {
+			if cfg.SSH.PrivateKeyPath != "" {
+				sshRunner, sshErr = newSSH(cfg)
+			} else if gc == nil {
+				return nil, errors.New("SSH no disponible y Guest Additions no está configurado: falta --ssh-key")
+			}
+			if sshErr != nil {
 				if gc == nil {
-					return nil, fmt.Errorf("SSH no disponible y Guest Additions no está configurado: %w", err)
+					return nil, fmt.Errorf("SSH no disponible y Guest Additions no está configurado: %w", sshErr)
 				}
-				log.Printf("no se pudo establecer SSH (%v); se usará Guest Additions (VBoxManage)", err)
-			} else {
-				sshRunner = r
+				log.Printf("no se pudo establecer SSH (%v); se usará Guest Additions hasta que exista una llave válida", sshErr)
 			}
 		}
 
@@ -207,6 +250,10 @@ func buildRunner(cfg config.Config) (runner.Runner, error) {
 			return runner.NewFailover(sshRunner, gc), nil
 		case sshRunner != nil:
 			return sshRunner, nil
+		case gc != nil && cfg.HasSSH():
+			pingGuestControl(gc)
+			log.Printf("modo auto: Guest Additions como transporte inicial; SSH se activará tras generar la llave para %s", sshTarget(cfg))
+			return runner.NewBootstrapFailover(gc, sshTarget(cfg), sshConnector(cfg)), nil
 		case gc != nil:
 			log.Print("modo auto: Guest Additions como único transporte configurado")
 			pingGuestControl(gc)
@@ -224,6 +271,12 @@ func newSSH(cfg config.Config) (runner.Runner, error) {
 	if err != nil {
 		return nil, err
 	}
+	return newSSHWithKey(cfg, key)
+}
+
+// newSSHWithKey dials SSH with an explicit private key, so the console can use
+// a key that was generated inside the guest and only exists in memory.
+func newSSHWithKey(cfg config.Config, key []byte) (runner.Runner, error) {
 	if cfg.SSH.KnownHostsFile == "" && !cfg.SSH.InsecureIgnoreHostKey {
 		log.Print("aviso: sin --ssh-known-hosts no se verifica la llave del host remoto; use esta opción solo en un laboratorio")
 	}
@@ -243,6 +296,23 @@ func newSSH(cfg config.Config) (runner.Runner, error) {
 	}
 	log.Printf("conexión SSH establecida con %s", remote.Target())
 	return remote, nil
+}
+
+// sshConnector builds the callback used to promote the active transport to SSH
+// once a key pair exists.
+func sshConnector(cfg config.Config) func([]byte) (runner.Runner, error) {
+	return func(key []byte) (runner.Runner, error) {
+		return newSSHWithKey(cfg, key)
+	}
+}
+
+// sshTarget renders the configured destination even before a connection exists.
+func sshTarget(cfg config.Config) string {
+	port := cfg.SSH.Port
+	if port == 0 {
+		port = 22
+	}
+	return fmt.Sprintf("%s@%s:%d", cfg.SSH.User, cfg.SSH.Host, port)
 }
 
 // pingGuestControl checks the Guest Additions channel without preventing the

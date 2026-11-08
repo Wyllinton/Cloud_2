@@ -105,6 +105,8 @@ func (m *RootSSHManager) Configure(ctx context.Context, req RootSSHRequest) *op.
 	if err != nil {
 		return rep.Fail(err)
 	}
+	m.promoteToSSH(rep, priv)
+
 	rep.AddArtifact(op.Artifact{
 		Name:        "Llave privada de root (id_ed25519)",
 		Filename:    "root_id_ed25519",
@@ -151,6 +153,28 @@ func (m *RootSSHManager) readPrivateKey(ctx context.Context) ([]byte, error) {
 		return nil, fmt.Errorf("la llave privada %s está vacía", rootPrivateKey)
 	}
 	return []byte(res.Stdout), nil
+}
+
+// promoteToSSH switches the live transport to SSH using the key that was just
+// generated inside the guest. A transport that is already on SSH is left as is.
+// If the promotion fails the report warns and the current transport keeps
+// working, so the generated key is not lost.
+func (m *RootSSHManager) promoteToSSH(rep *op.Report, privateKey []byte) {
+	promoter, ok := m.R.(runner.SSHPromoter)
+	if !ok {
+		return
+	}
+	before := m.R.Kind()
+	if err := promoter.PromoteSSH(privateKey); err != nil {
+		rep.Warn("No se pudo cambiar el transporte a SSH: " + err.Error() +
+			". La consola continúa por Guest Additions; revise --ssh-host, --ssh-port, --ssh-known-hosts " +
+			"o use --ssh-insecure-ignore-host-key en el laboratorio.")
+		return
+	}
+	if after := m.R.Kind(); after != before {
+		rep.Note("El transporte cambió de " + before + " a " + after +
+			"; las siguientes operaciones se ejecutan por SSH con la llave recién generada.")
+	}
 }
 
 // installAuthorizedKey appends pub to authorized_keys without duplicating it.

@@ -95,6 +95,19 @@ type FileTransfer interface {
 	WriteFile(ctx context.Context, path string, data []byte, mode uint32) ([]Result, error)
 }
 
+// FileTransferProvider is implemented by transports whose active implementation
+// can change at runtime. Callers must ask for the current file-transfer
+// mechanism instead of asserting FileTransfer directly on the wrapper.
+type FileTransferProvider interface {
+	FileTransfer() (FileTransfer, bool)
+}
+
+// SSHPromoter is implemented by transports that can switch to SSH at runtime,
+// for example after a key pair has been generated through Guest Additions.
+type SSHPromoter interface {
+	PromoteSSH(privateKey []byte) error
+}
+
 // Runner executes commands on a target system.
 type Runner interface {
 	// Run executes name with args. When input is non-nil it is written to the

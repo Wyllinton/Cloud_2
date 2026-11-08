@@ -1,0 +1,5 @@
+# Inventario y discos diferenciales generados por el módulo HTTPaaS.
+/httpaas/
+
+# Artefactos de pruebas de Go.
+*.test
